@@ -1,0 +1,14 @@
+{
+  "tasks": [
+    {
+      "id": 1,
+      "title": "示例任务",
+      "description": "任务的详细描述",
+      "status": "pending",
+      "dependencies": [],
+      "complexity": "medium",
+      "files": [],
+      "notes": ""
+    }
+  ]
+}
