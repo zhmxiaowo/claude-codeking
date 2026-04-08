@@ -107,13 +107,14 @@
 ```
 
 ### 7. shadcn/ui
-- **定位**：React/Next.js 生态最火 UI 方案，基于 Tailwind + Radix UI，极简美学
-- **安装**：通过 CLI 引入组件（非 npm 包）
+- **定位**：React/Next.js 生态最火 UI 组件库，**不是独立 CSS 框架**，而是基于 Tailwind CSS + Radix UI 的预制组件集合
+- **⚠️ 前置依赖**：必须同时安装 Tailwind CSS（选择 shadcn/ui = Tailwind CSS + shadcn 组件）
+- **CSS 层**：`<script src="https://cdn.tailwindcss.com"></script>`（CDN）/ `npm install tailwindcss @tailwindcss/vite`（npm）
+- **组件安装**：通过 CLI 按需引入（代码复制到项目中，非 node_modules 依赖）
 ```bash
 npx shadcn@latest init
-npx shadcn@latest add button card
+npx shadcn@latest add button card dialog table
 ```
-- **前置依赖**：需要 React + Tailwind CSS
 - **用法示例**：
 ```tsx
 import { Button } from "@/components/ui/button"
@@ -128,6 +129,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
   </CardContent>
 </Card>
 ```
+- **生成 ui-config.json 时**：cssFramework.name 填 `"shadcn/ui"`，cdn/npm 填 Tailwind 的值，额外加 `"componentLib": "npx shadcn@latest"`
 
 ---
 
@@ -257,12 +259,21 @@ import { Home } from 'iconoir-react'
 ```
 
 ### 11. Iconify
-- **定位**：终极统一方案，10 万+ 图标，整合所有主流图标库，按需加载
+- **定位**：图标聚合平台，**不是单一图标集**，而是通过统一 API 整合 150+ 个图标库、20 万+ 图标，按需加载
+- **⚠️ 特殊说明**：选择 Iconify = 获得所有图标库的访问权。可以在同一项目中使用 Material Design、Lucide、Phosphor 等任意图标，但建议项目内统一使用 1-2 个图标集前缀以保持视觉一致性
 - **CDN**：`<script src="https://code.iconify.design/3/3.1.1/iconify.min.js"></script>`
 - **npm**：`npm install @iconify/react`
+- **常用图标集前缀**：
+  - `mdi` — Material Design Icons（7000+，最全面）
+  - `lucide` — Lucide Icons（现代精简）
+  - `ph` — Phosphor Icons（6 种粗细）
+  - `heroicons` — Heroicons（Tailwind 风格）
+  - `tabler` — Tabler Icons（5000+）
+  - `ri` — Remix Icon（实心+描边）
+  - `fa6-solid` / `fa6-regular` — Font Awesome 6
 - **用法**：
 ```html
-<!-- CDN（可用任何图标库的图标） -->
+<!-- CDN（data-icon 格式：{图标集前缀}:{图标名}） -->
 <span class="iconify" data-icon="mdi:home"></span>
 <span class="iconify" data-icon="lucide:settings"></span>
 <span class="iconify" data-icon="ph:heart-bold"></span>
@@ -270,7 +281,9 @@ import { Home } from 'iconoir-react'
 <!-- React -->
 import { Icon } from '@iconify/react'
 <Icon icon="mdi:home" width={24} />
+<Icon icon="lucide:check" width={24} />
 ```
+- **生成 ui-config.json 时**：iconLibrary.name 填 `"Iconify"`，额外加 `"availableSets": ["mdi", "lucide"]`（列出项目推荐使用的图标集前缀）
 
 ---
 

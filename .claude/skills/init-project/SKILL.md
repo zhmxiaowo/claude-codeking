@@ -39,9 +39,12 @@ user-invocable: true
 - **MVP 范围**：除核心功能外，还有哪 2-4 个必须实现的功能？
 - **视觉设计方案**（仅 projectType 为 `web` 时）：
   检查项目根目录是否存在 `ui-config.json`。
-  如不存在，读取 `.claude/skills/ui-setup/SKILL.md` 并执行其流程：
-  先让用户选 CSS 框架，再选图标库，最后生成 `ui-config.json`。
-  如果用户在 Phase 1 已明确提到 UI 偏好（如"用 Tailwind"），直接采用，只确认缺失项。
+  如不存在，读取 `.claude/skills/ui-setup/SKILL.md` 并执行其流程。
+  **适配规则**：将 Phase 1 和 Phase 2 中用户提到的技术偏好传递给 ui-setup 的 Step 0：
+  - 用户提到了具体 CSS 框架（如"用 Tailwind"、"Bootstrap"）→ 跳过 CSS 选择
+  - 用户提到了具体图标库（如"用 Lucide"）→ 跳过图标选择
+  - 用户提到了组合方案（如"用 shadcn/ui"）→ 自动推导依赖（shadcn/ui → Tailwind），跳过已确定项
+  - 未提到的部分才展示选择列表让用户选
 
 对模糊回答追问："X 具体指什么？能举个例子吗？"
 
