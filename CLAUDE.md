@@ -47,8 +47,10 @@
 ## 核心工作流
 
 ```
-/init-project → 交互式需求收集 → 生成 spec.md + task.json + progress.json
-/work         → 持续自主开发循环（Plan→Implement→Review→Test→Commit→Next）
+/init-project → 第一性原理访谈 → 架构共识 → 生成 spec.md + task.json + progress.json
+/work         → 持续自主开发循环（Plan→Implement→Review→Build→Test→Commit→Next）
+/stopwork     → 优雅停止（以 task 为单位安全停止，保存进度）
+/change       → 中途需求变更（同步更新 spec.md + task.json + progress.json）
 /review       → GAN 式代码评审（外部评审者模式）
 ```
 

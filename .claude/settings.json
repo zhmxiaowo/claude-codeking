@@ -39,6 +39,11 @@
         "hooks": [
           { "type": "command", "command": "node .claude/hooks/scripts/context-compact-warn.js" }
         ]
+      },
+      {
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/work-continuation.js" }
+        ]
       }
     ]
   }
