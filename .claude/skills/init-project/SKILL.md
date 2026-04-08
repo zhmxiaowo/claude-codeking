@@ -37,6 +37,11 @@ user-invocable: true
 - **已有资源**：设计稿、API 文档、现有代码、竞品参考
 - **明确约束**：性能要求、兼容性、截止日期
 - **MVP 范围**：除核心功能外，还有哪 2-4 个必须实现的功能？
+- **视觉设计方案**（仅 projectType 为 `web` 时）：
+  检查项目根目录是否存在 `ui-config.json`。
+  如不存在，读取 `.claude/skills/ui-setup/SKILL.md` 并执行其流程：
+  先让用户选 CSS 框架，再选图标库，最后生成 `ui-config.json`。
+  如果用户在 Phase 1 已明确提到 UI 偏好（如"用 Tailwind"），直接采用，只确认缺失项。
 
 对模糊回答追问："X 具体指什么？能举个例子吗？"
 
@@ -71,6 +76,7 @@ user-invocable: true
 - 读取 `templates/spec.md` 获取结构
 - 用收集的需求填充每个章节
 - **必须包含 Architecture 章节**：记录 Phase 3 确认的架构设计
+- 填充「视觉设计方案」章节（CSS 框架、图标库、图片方案，来自 ui-config.json）
 - 写入项目根目录 `spec.md`
 
 ### 5.2 生成 task.json

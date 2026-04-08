@@ -38,3 +38,15 @@ src/
 - 关键用户流程必须有视觉验证（截图对比）
 - 测试期间监控浏览器控制台，零 error 策略
 - API 集成测试使用真实请求，禁止 mock 数据库
+
+## 视觉设计规范
+- 读取项目根目录 `ui-config.json`，使用其中指定的 CSS 框架和图标库
+- 具体 CDN 链接和用法参考 `.claude/skills/ui-setup/ui-stacks.md`
+- 禁止混用多个 CSS 框架
+- 全项目图标风格统一，只用 ui-config.json 中指定的图标库
+- 每个页面/组件首次实现必须包含合理的视觉元素（图标、配图），不允许纯文字 UI
+- 配图规则：
+  - 固定尺寸占位图：用 `picsum_pattern`（如 `https://picsum.photos/800/400`）
+  - 需要真实配图且 pexels_key 非空：运行 `.claude/skills/ui-setup/scripts/fetch_image.py`
+  - 所有 `<img>` 必须设置 width/height 或 aspect-ratio
+- 如需更换视觉方案，运行 `/ui-setup` 重新选择
