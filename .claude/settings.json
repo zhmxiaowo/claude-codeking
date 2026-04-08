@@ -1,6 +1,45 @@
 {
+  "env":{"ENABLE_LSP_TOOL": "1"},
   "enabledPlugins": {
     "context7@claude-plugins-official": true,
     "playwright@claude-plugins-official": true
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/session-start-inject.js" }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/block-dangerous-cmd.js" }
+        ]
+      },
+      {
+        "matcher": "Write|Edit|MultiEdit",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/pre-write-context7-check.js" }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "mcp__.*context7.*",
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/track-context7-query.js" }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          { "type": "command", "command": "node .claude/hooks/scripts/context-compact-warn.js" }
+        ]
+      }
+    ]
   }
 }
