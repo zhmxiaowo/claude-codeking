@@ -1,7 +1,202 @@
+# ============================================================
+# Claude Code 万能工程模板 - 综合 .gitignore
+# 覆盖: Web / Python / Unreal Engine / Unity / Cocos Creator
+# 原则: 只上传 配置 + 代码 + Assets，忽略所有编译/临时产物
+# ============================================================
+
+# --------------------------------------------------
+# 通用
+# --------------------------------------------------
+*.log
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+ehthumbs.db
+
+# IDE / 编辑器
+.vscode/
+!.vscode/settings.json
+!.vscode/launch.json
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.sublime-project
+*.sublime-workspace
+
+# 环境变量 / 密钥
+.env
+.env.*
+!.env.example
+
+# Claude Code 本地设置
+.claude/settings.local.json
+
+# --------------------------------------------------
+# Web (Node.js / 前端)
+# --------------------------------------------------
 node_modules/
 dist/
 build/
-.env
-.env.*
-*.log
-.claude/settings.local.json
+.output/
+.nuxt/
+.next/
+.cache/
+.parcel-cache/
+.turbo/
+coverage/
+*.tsbuildinfo
+.eslintcache
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# --------------------------------------------------
+# Python 后端
+# --------------------------------------------------
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+*.whl
+.Python
+pip-log.txt
+pip-delete-this-directory.txt
+
+# 虚拟环境
+venv/
+.venv/
+env/
+ENV/
+
+# 测试/覆盖率
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# --------------------------------------------------
+# Unreal Engine (UE4/UE5)
+# --------------------------------------------------
+# 编译中间产物（最大头，几十GB）
+Intermediate/
+DerivedDataCache/
+Build/
+Binaries/
+
+# 保存的文件夹（自动保存/备份）
+Saved/
+
+# 本地编译设置
+*.sln
+*.vcxproj*
+
+# 打包产物
+Dist/
+Releases/
+PackagedOutput/
+
+# UE 自动生成
+*.VC.db
+*.VC.opendb
+*.opensdf
+*.sdf
+*.cachefile
+*.AssetRegistryCache
+
+# Plugins 编译产物（但保留插件源码和资产）
+Plugins/**/Binaries/
+Plugins/**/Intermediate/
+
+# --------------------------------------------------
+# Unity
+# --------------------------------------------------
+# 库缓存（Unity 自动重新生成）
+Library/
+Temp/
+Obj/
+Logs/
+
+# 构建输出
+Builds/
+Build/
+
+# 自动生成
+Assembly-CSharp*.csproj
+*.unityproj
+*.pidb
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Crashlytics
+crashlytics-build.properties
+
+# Unity 打包
+*.apk
+*.aab
+*.unitypackage
+*.app
+
+# Addressables
+[Aa]ssets/[Aa]ddressable[Aa]ssets[Dd]ata/*/*.bin*
+[Aa]ssets/[Ss]treamingAssets/aa.meta
+[Aa]ssets/[Ss]treamingAssets/aa/
+
+# --------------------------------------------------
+# Cocos Creator (2.x / 3.x)
+# --------------------------------------------------
+# 编译输出
+build/
+temp/
+local/
+
+# 库缓存
+library/
+
+# 原生编译产物
+native/engine/
+native/**/build/
+native/**/proj/
+
+# 旧版 Cocos
+simulator/
+
+# 自动生成的声明文件
+@types/
+
+# --------------------------------------------------
+# 打包产物 / 二进制（通用）
+# --------------------------------------------------
+*.exe
+*.dll
+*.dylib
+*.app
+*.ipa
+*.apk
+*.aab
+*.zip
+*.tar.gz
+*.rar
+*.7z
