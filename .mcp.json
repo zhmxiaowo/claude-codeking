@@ -2,11 +2,14 @@
   "mcpServers": {
     "fetch": {
       "type": "stdio",
-      "command": "uvx",
+      "command": "python",
       "args": [
-        "mcp-server-fetch"
+        "-m",
+        "mcp_server_fetch"
       ],
-      "env": {}
+      "env": {
+        "PYTHONIOENCODING":"utf-8"
+      }
     },
     "exa": {
       "type": "http",
