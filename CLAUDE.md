@@ -28,6 +28,17 @@
 - **不过度封装**：三行相似代码优于一个过早抽象
 - **不添加投机性代码**：只实现当前任务需要的功能
 
+## 经验管理
+
+- spec.md 的「经验与约束」章节是项目的隐性知识库
+- /learn skill 负责提取经验，在以下节点自动调用：
+  - /init-project 完成后（Phase 6.5）
+  - /change 完成后（Step 4.5）
+  - /work 每个任务 commit 后（Step 6.5）
+- 用户也可随时手动运行 /learn
+- 每条经验格式：`- [日期 task#id] 内容描述`
+- 在较长对话即将结束时，自检是否有未记录的用户偏好或技术发现
+
 ## 进度跟踪
 
 - 每完成一个任务：更新 task.json（status→completed）+ progress.json + git commit

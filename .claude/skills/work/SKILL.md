@@ -93,6 +93,11 @@ user-invocable: true
 - `git add task.json progress.json`
 - `git commit -m "chore: update progress - task #[id] completed"`
 
+### Step 6.5: Learn 经验提取
+- 执行 /learn 逻辑，提取本任务开发中的经验
+- 如有新内容写入 spec.md，在 Step 6 的进度 commit 中已包含或追加一次 commit：`git add spec.md && git commit -m "chore: update experience notes - task #[id]"`
+- 如无新发现，不得输出任何文字，直接执行 Step 7 的第一个操作
+
 ### Step 7: Continue 继续
 - 从 task.json 取下一个 pending 任务（尊重 dependencies 顺序，跳过 cancelled）
 - 如果所有任务完成：
@@ -116,6 +121,7 @@ user-invocable: true
 - **永不停止**：除非全部完成或全部阻塞，否则持续工作
 - **绝对禁止提前停止**：完成一个任务后，你必须立即开始下一个任务。不要询问用户"是否继续"，不要输出"接下来我将..."然后等待。直接开始下一个任务的 Step 1。
 - **每个 Step 7 必须直接跳转**：输出"→ 开始任务 #X"后立即执行 Step 1，不要在两个任务之间产生任何等待或确认。
+- **禁止总结性停止**：绝不输出"接下来我将做 X、Y、Z"之类的展望后停止。如果 context 即将耗尽，完成当前 Step 后 commit（用 wip: 前缀），然后输出"⚡ 请运行 /compact 后重新 /work"。
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
 - **编译门禁**：代码必须能编译通过才能提交

@@ -95,6 +95,11 @@ user-invocable: true
   }
   ```
 
+## Step 4.5: 经验提炼
+
+执行 /learn 逻辑，将本次变更讨论中的新发现提炼到 spec.md 的「经验与约束」章节。
+经验内容直接写入 spec.md，由 Step 5 统一提交（不独立 commit）。
+
 ## Step 5: 提交
 
 ```bash
