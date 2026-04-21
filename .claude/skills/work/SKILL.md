@@ -15,13 +15,12 @@ user-invocable: true
 2. 读取 `task.json` — 找到下一个 pending 任务（或使用 $ARGUMENTS 指定的任务 ID）
    - 跳过 status 为 `cancelled` 的任务
 3. 读取 `spec.md` — 理解完整项目上下文
-4. 根据 progress.json 的 projectType 读取对应规则文件：
-   - web → `.claude/rules/web.md`
-   - game-engine → `.claude/rules/game-engine.md`
-5. 检查 git 状态，确保工作区干净
-6. 检查 `.claude/.work-stop` 是否存在：
+4. 读取 `DESIGN.md`（如存在）— 加载 Color Palette / Typography / Component Stylings 章节，用于所有 UI 任务
+5. 加载 `.claude/rules/web.md`
+6. 检查 git 状态，确保工作区干净
+7. 检查 `.claude/.work-stop` 是否存在：
    - 存在：读取并显示上次停止原因，删除该文件，继续工作
-7. 更新 progress.json 的 currentPhase 为 "in_progress"
+8. 更新 progress.json 的 currentPhase 为 "in_progress"
 
 如果 progress.json 不存在，提示用户先运行 `/init-project`。
 
@@ -36,8 +35,8 @@ user-invocable: true
 - 输出简要实施计划（< 10 行）
 
 ### Step 2: Implement 实现
-- 按 CLAUDE.md 通用编码规范编写代码
-- 遵循项目类型对应的 rules 文件规则
+- 按 CLAUDE.md 通用编码规范 + `.claude/rules/web.md` 编写代码
+- UI 任务必须对齐 `DESIGN.md` 的 tokens（颜色、字体、间距、圆角走 Tailwind `@theme` 变量）
 - 保持变更聚焦于当前单一任务
 - 组合优于继承，async/await，链式编程
 
@@ -52,34 +51,27 @@ user-invocable: true
 ### Step 4: Build 编译验证
 **此步骤为硬性门禁，必须通过后才能继续。**
 
-**Web 项目**：
-1. 如果 node_modules 不存在，先运行 `npm install` 或 `pnpm install`
-2. 运行 `npm run build` 或 `tsc --noEmit`（取决于项目配置）
+**前端**（frontend/ 存在时）：
+1. 如果 node_modules 不存在，先运行 `npm install`
+2. 运行 `npm run build` 或 `npx vue-tsc --noEmit`
 3. 必须零编译 error
 
-**游戏项目**：
-1. Unity：`Unity -batchmode -nographics -logFile - -quit -projectPath .`
-2. Unreal：使用 UnrealBuildTool 编译
-3. Cocos：`npm run build` 或 `cocos compile`
-4. 必须零编译 error
+**后端**（backend/ 存在时）：
+1. 运行 `uv run python -c "from app.main import app"` 确认无导入错误
+2. 如有测试：`uv run pytest`
 
 **编译失败 → 立即修复代码，重新编译，循环直到通过。不得跳过此步骤。**
 
 ### Step 5: Test 测试
-根据项目类型选择验证方式：
 
-**Web 项目**：
-- 运行已有测试套件（npm test / pnpm test）
-- 使用 Playwright MCP 进行视觉验证：
-  1. 启动开发服务器（npm run dev）
+- 运行已有测试套件（npm test / uv run pytest）
+- 使用 Playwright MCP 进行视觉验证（前端任务）：
+  1. 启动开发服务器（`npm run dev`）
   2. browser_navigate 到目标页面
   3. browser_snapshot 检查渲染
   4. browser_console_messages 检查零 error
   5. browser_click 测试关键交互
-
-**游戏项目**：
-- 运行单元测试（如存在）
-- 确认编译已在 Step 4 通过
+- 视觉验证时同步对比 DESIGN.md 的 Color Palette 与实际渲染色值，严禁硬编码 hex
 
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
@@ -95,7 +87,7 @@ user-invocable: true
 
 ### Step 6.5: Learn 经验提取
 - 执行 /learn 逻辑，提取本任务开发中的经验
-- 如有新内容写入 spec.md，在 Step 6 的进度 commit 中已包含或追加一次 commit：`git add spec.md && git commit -m "chore: update experience notes - task #[id]"`
+- 如有新内容写入 spec.md，追加一次 commit：`git add spec.md && git commit -m "chore: update experience notes - task #[id]"`
 - 如无新发现，不得输出任何文字，直接执行 Step 7 的第一个操作
 
 ### Step 7: Continue 继续
@@ -124,6 +116,7 @@ user-invocable: true
 - **禁止总结性停止**：绝不输出"接下来我将做 X、Y、Z"之类的展望后停止。如果 context 即将耗尽，完成当前 Step 后 commit（用 wip: 前缀），然后输出"⚡ 请运行 /compact 后重新 /work"。
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
+- **设计对齐**：UI 任务首先读 DESIGN.md 的对应章节，对不齐 tokens 直接视为失败
 - **编译门禁**：代码必须能编译通过才能提交
 - **增量提交**：每个任务完成立即提交，不累积
 - **进度可恢复**：progress.json 保证 session 断开后可恢复

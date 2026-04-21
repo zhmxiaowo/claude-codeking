@@ -40,10 +40,12 @@ const EXPECTED_AGENTS = [
     requiredContent: [
       // 编译门禁（核心改进）
       '编译', 'npm run build', 'tsc',
-      // Web 项目验证流程
+      // Web 前端验证流程
       'Playwright', 'browser_navigate', 'browser_snapshot', 'browser_console_messages',
-      // Game 项目验证流程
-      'Unity', 'Unreal', 'Cocos',
+      // 后端验证
+      'uv run', 'app.main',
+      // 设计对齐
+      'DESIGN.md',
       // 错误报告
       '修复建议',
       // 严格顺序
@@ -102,12 +104,11 @@ describe('Agent 定义文件验证', () => {
 describe('Agent 质量验证 - qa-verifier 编译门禁', () => {
   const qaFile = path.join(AGENTS_DIR, 'qa-verifier', 'qa-verifier.md');
 
-  it('Web 验证流程应先编译再测试（顺序正确）', () => {
+  it('验证流程应先编译再测试（顺序正确）', () => {
     const content = fs.readFileSync(qaFile, 'utf8');
-    // 在 Web 项目验证流程中，Step 2 编译检查应在 Step 4 Playwright 之前
-    const webSection = content.slice(content.indexOf('## 2. Web 项目验证') || 0);
-    const buildIdx = webSection.indexOf('Step 2');
-    const playwrightIdx = webSection.indexOf('Step 4');
+    // Step 2 编译检查应在 Step 4 Playwright 之前
+    const buildIdx = content.indexOf('Step 2');
+    const playwrightIdx = content.indexOf('Step 4');
     assert.ok(buildIdx > 0, '应包含 Step 2 编译检查');
     assert.ok(playwrightIdx > 0, '应包含 Step 4 Playwright 验证');
     assert.ok(buildIdx < playwrightIdx, '编译检查(Step 2)应在 Playwright 验证(Step 4)之前');
@@ -123,10 +124,10 @@ describe('Agent 质量验证 - qa-verifier 编译门禁', () => {
     assert.ok(content.includes('npm run dev') || content.includes('npm start'));
   });
 
-  it('Game 验证应包含具体编译命令', () => {
+  it('应包含后端编译 / 导入验证', () => {
     const content = fs.readFileSync(qaFile, 'utf8');
-    assert.ok(content.includes('-batchmode'), 'Unity 编译应包含 -batchmode');
-    assert.ok(content.includes('UnrealBuildTool'), 'Unreal 编译应包含 UnrealBuildTool');
+    assert.ok(content.includes('uv run'), '后端编译应使用 uv run');
+    assert.ok(content.includes('app.main'), '应验证 app.main 可导入');
   });
 
   it('验证失败时应提供修复建议（非简单"失败"）', () => {

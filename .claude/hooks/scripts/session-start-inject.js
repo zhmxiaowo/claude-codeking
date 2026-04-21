@@ -13,7 +13,7 @@ try {
   if (fs.existsSync(progressPath)) {
     const p = JSON.parse(fs.readFileSync(progressPath, 'utf8'));
     lines.push('📊 上次进度摘要：');
-    lines.push(`  项目：${p.projectName || '(未命名)'} (${p.projectType})`);
+    lines.push(`  项目：${p.projectName || '(未命名)'}${p.tier ? ` [${p.tier}]` : ''}`);
     lines.push(`  阶段：${p.currentPhase} | 模块：${p.currentModule || '-'}`);
     lines.push(`  已完成 ${p.completedTasks}/${p.totalTasks} 个 task`);
     const recent = (p.lastSession?.tasksCompleted || []).slice(-3);

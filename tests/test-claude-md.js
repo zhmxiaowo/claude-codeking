@@ -25,14 +25,12 @@ describe('CLAUDE.md 主文档验证', () => {
       assert.ok(CLAUDE_MD.includes('/init-project'));
     });
 
-    it('应包含 spec.md 读取', () => {
-      assert.ok(CLAUDE_MD.includes('spec.md'));
+    it('应包含 web.md 加载', () => {
+      assert.ok(CLAUDE_MD.includes('web.md'));
     });
 
-    it('应包含 projectType 条件加载', () => {
-      assert.ok(CLAUDE_MD.includes('projectType'));
-      assert.ok(CLAUDE_MD.includes('web'));
-      assert.ok(CLAUDE_MD.includes('game-engine'));
+    it('应包含 DESIGN.md 加载', () => {
+      assert.ok(CLAUDE_MD.includes('DESIGN.md'));
     });
 
     it('应包含 git 状态检查', () => {
@@ -98,11 +96,11 @@ describe('CLAUDE.md 主文档验证', () => {
       assert.ok(CLAUDE_MD.includes('/work'));
     });
 
-    it('应包含 /stopwork 命令（新增）', () => {
+    it('应包含 /stopwork 命令', () => {
       assert.ok(CLAUDE_MD.includes('/stopwork'));
     });
 
-    it('应包含 /change 命令（新增）', () => {
+    it('应包含 /change 命令', () => {
       assert.ok(CLAUDE_MD.includes('/change'));
     });
 
@@ -112,6 +110,23 @@ describe('CLAUDE.md 主文档验证', () => {
 
     it('/work 描述应包含 Build 步骤（编译门禁）', () => {
       assert.ok(CLAUDE_MD.includes('Build'));
+    });
+  });
+
+  // ========================================
+  // 设计系统
+  // ========================================
+  describe('设计系统单一源', () => {
+    it('应声明 DESIGN.md 是 source of truth', () => {
+      assert.ok(CLAUDE_MD.includes('DESIGN.md'));
+    });
+
+    it('应引用 /ui-ux-pro-max 作为默认设计路径', () => {
+      assert.ok(CLAUDE_MD.includes('/ui-ux-pro-max'));
+    });
+
+    it('应引用 /design-skill 作为预设分支', () => {
+      assert.ok(CLAUDE_MD.includes('/design-skill'));
     });
   });
 

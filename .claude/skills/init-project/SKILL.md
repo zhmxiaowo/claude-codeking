@@ -1,137 +1,273 @@
 ---
 name: init-project
-description: 交互式项目需求收集与打磨。通过第一性原理提问、架构共识确认、任务拆解确认，生成 spec.md、task.json、progress.json 三件套。
+description: Web 项目初始化总编排。7 轮 web 专属需求访谈 → 架构共识 → 内部调用 /init-web 搭脚手架 → 调用 /ui-ux-pro-max 或 /design-skill 产出 DESIGN.md → 生成 spec.md / task.json / progress.json 三件套。
 argument-hint: [项目名称或简短描述]
 user-invocable: true
 ---
 
-# 项目初始化工作流
+# Web 项目初始化工作流
 
-你现在是一个资深产品架构师，负责通过结构化对话引导用户明确项目需求，并输出工程文档。
+你是一个专注于 Web 全栈的资深产品架构师。通过结构化访谈引导用户明确需求，然后编排 init-web + 设计 skill 完成脚手架和设计系统，最后产出可直接被 /work 消费的三件套。
 
-**核心原则：先对齐再动手。每个关键决策点都必须等用户确认后才继续。**
+**核心原则**：
+- **第一性原理**：每个问题都要追到底层需求，拒绝含糊；每个技术决策都要能追溯到产品目标。
+- **先对齐再动手**：每个关键决策点（Tier 选择、架构方案、任务清单）都等用户确认后才继续。
 
-## Phase 1：第一性原理提问
+---
 
-从根本出发，逐个提问（每次一个，等回答后再继续）：
+## Phase 1：Web 需求访谈（7 轮）
 
-**问题 1**：
-> 用一句话描述：你要做什么？为谁做？
+每轮一个问题，等用户回答后再问下一个。回答含糊时追问例子。把每轮答案临时存在变量里，Phase 6 生成 spec.md 时一次性落盘。
 
-**问题 2**：
-> 如果只能做一个功能，那个功能是什么？
+### Round 1 — 场景形态（决定 init-web Tier）
 
-**问题 3**：
-> 用户完成这个核心操作的完整步骤是什么？（从打开到完成）
+> 先选最贴近的项目形态（用于决定技术栈规模）：
+>
+> - **A. 静态展示站** — landing / 作品集 / 说明文档（1-3 页，纯展示）→ T1
+> - **B. 内容型多页应用** — 博客 / 工具站 / 带路由的 SPA → T2
+> - **C. 中后台系统** — 管理后台 / SaaS 工作台（登录、表格、表单、图表）→ T3
+> - **D. 纯后端 API 服务** — 给移动端/其他前端用的接口 → TB
+> - **E. 全栈组合** — 前台 + 后台，如 C + TB
 
-从回答中自动推断 projectType：
-- 涉及浏览器、网页、API、前后端 → `web`
-- 涉及 Unity、Unreal、Cocos、游戏、引擎 → `game-engine`
-- 不确定时询问用户确认
+记录：`tier_choice`（A/B/C/D/E）。
 
-## Phase 2：快速补全
+### Round 2 — 产品一句话 + 目标用户
 
-根据 Phase 1 的回答，只追问**缺失的**关键信息（已有的不重复问）：
+> 1. 一句话说明：这个产品解决谁的什么问题？
+> 2. 主要使用者是谁？（B 端员工 / C 端消费者 / 开发者 / 混合）
 
-- **技术栈偏好**：框架、语言、数据库（如果用户没提到）
-- **已有资源**：设计稿、API 文档、现有代码、竞品参考
-- **明确约束**：性能要求、兼容性、截止日期
-- **MVP 范围**：除核心功能外，还有哪 2-4 个必须实现的功能？
-- **视觉设计方案**（仅 projectType 为 `web` 时）：
-  检查项目根目录是否存在 `ui-config.json`。
-  如不存在，读取 `.claude/skills/ui-setup/SKILL.md` 并执行其流程。
-  **适配规则**：将 Phase 1 和 Phase 2 中用户提到的技术偏好传递给 ui-setup 的 Step 0：
-  - 用户提到了具体 CSS 框架（如"用 Tailwind"、"Bootstrap"）→ 跳过 CSS 选择
-  - 用户提到了具体图标库（如"用 Lucide"）→ 跳过图标选择
-  - 用户提到了组合方案（如"用 shadcn/ui"）→ 自动推导依赖（shadcn/ui → Tailwind），跳过已确定项
-  - 未提到的部分才展示选择列表让用户选
+记录：`one_liner`、`audience`。这两个答案后面喂给 ui-ux-pro-max 作查询语料。
 
-对模糊回答追问："X 具体指什么？能举个例子吗？"
+### Round 3 — 核心用户旅程
 
-## Phase 3：架构设计方案
+> 用户从打开到完成目标的关键动作链路？（3-7 步即可）
+> 示例："进入 → 输入搜索 → 看结果 → 点详情 → 收藏"
 
-基于收集的信息，输出一个**架构设计提案**，包含：
+记录：`primary_journey`。
 
-1. **技术选型及理由**（为什么选这个框架/库，而非其他）
-2. **模块划分**（3-5 个大模块，每个模块的职责边界）
-3. **数据流向**（用户操作 → 前端 → 后端 → 数据库 的关键链路）
-4. **目录结构**（基于 projectType 对应的 rules 文件中的标准结构）
-5. **关键技术决策点**（状态管理方案、认证方案、部署方案等）
+### Round 4 — 数据与状态（仅 B/C/D/E 需要；A 跳过）
 
-输出后明确询问：
+> 1. 用户能看到的"东西"有哪几类？（商品、文章、订单、报表…）
+> 2. 需要登录 / 用户系统吗？
+> 3. 数据从哪来？（用户自己填 / 外部 API / 数据库 / 未定）
+> 4. 需要实时能力吗？（聊天、推送、协作编辑）
+
+记录：`entities`、`auth_needed`、`data_source`、`realtime_needed`。这些驱动后端作用域（是否装 WebSocket、是否装 Alembic 等）。
+
+### Round 5 — 视觉方向（决定设计分支）
+
+> 视觉风格怎么来？
+>
+> - **A. AI 推理定制**（推荐）— 我描述调性，让 ui-ux-pro-max 基于产品语义推荐完整设计系统
+> - **B. 大厂品牌预设** — 直接套 Stripe / Linear / Notion 等 68 套之一，走 design-skill
+> - **C. 跳过** — 先用默认中性主题，后续再细化
+
+若选 A，追问一句调性关键词（如"极客暗色 / 温暖柔和 / 商务严谨"）。
+
+记录：`design_path`（A/B/C）、`design_keywords`。
+
+### Round 6 — MVP 边界
+
+> 1. 除核心旅程外，MVP 必须包含哪 2-4 个功能？
+> 2. 明确 out-of-scope 的功能（先不做的部分）
+
+记录：`mvp_in_scope`、`mvp_out_of_scope`。
+
+### Round 7 — 约束（可跳过）
+
+> 有无特殊约束？性能 / SEO / 兼容性 / 截止日期 / 部署环境
+
+记录：`constraints`。
+
+---
+
+## Phase 2：推导与架构共识
+
+### 2.1 Tier 推导
+
+根据 Round 1 + Round 4：
+
+| tier_choice | backend 需求 | 最终 tier |
+|-------------|-------------|-----------|
+| A | 通常不需要 | `T1` |
+| B | 若无后端 | `T2` |
+| B + 需要数据存储 | `T2 + --backend` | `T2+TB` |
+| C | 几乎必有后端 | `T3 + --backend` |
+| D | — | `TB` |
+| E | 明确全栈 | 按用户指明的前台 Tier + `--backend` |
+
+输出 Tier 推导结果让用户确认。
+
+### 2.2 架构提案
+
+基于前 7 轮输入，给出：
+1. **技术选型及理由**（栈已固定为 Vue+Tailwind+FastAPI，重点说为什么是这个 Tier）
+2. **模块划分**（frontend 的 views / stores / services；backend 的 api / services / models 如何组织到 Round 4 提到的 entities）
+3. **数据流向**（用户操作 → 前端 → 后端 → 持久化）
+4. **关键决策**（认证方案、状态管理、部署）
+
+明确询问：
 > 这个架构方案你是否同意？有什么需要调整的？
 
-**必须等用户确认或修改后才进入下一阶段。**
+**必须等用户确认后才进入 Phase 3。**
 
-## Phase 4：技术调研
+---
 
-使用 Context7 MCP 工具查询选定技术栈的最新文档：
-1. 用 `resolve-library-id` 查找库 ID
-2. 用 `query-docs` 获取关键 API 用法和最佳实践
+## Phase 3：脚手架（调用 /init-web）
 
-如有未知技术，用 WebSearch 搜索相关信息。
+使用 Skill 工具调用 init-web，将 Phase 2 的 Tier 与 backend 标志带入。
 
-## Phase 5：生成工程文档
+等脚本完成并返回 JSON summary。如失败（npm/uv 不在 PATH 等），暂停并引导用户修复环境后重试，不要继续 Phase 4。
 
-读取模板文件并填充内容：
+---
 
-### 5.1 生成 spec.md
-- 读取 `templates/spec.md` 获取结构
-- 用收集的需求填充每个章节
-- **必须包含 Architecture 章节**：记录 Phase 3 确认的架构设计
-- 填充「视觉设计方案」章节（CSS 框架、图标库、图片方案，来自 ui-config.json）
-- 写入项目根目录 `spec.md`
+## Phase 4：设计方向（按 Round 5 分支）
 
-### 5.2 生成 task.json
-- 将 spec.md 中的功能拆解为原子任务
-- 每个任务包含：id, title, description, status("pending"), dependencies, complexity, files, notes, origin("init")
-- 任务按依赖关系排序（基础设施 → 核心功能 → UI → 测试 → 部署）
-- 粒度控制：每个任务应在 1 个 session 内可完成
-- 写入项目根目录 `task.json`
+### 分支 A — /ui-ux-pro-max（AI 推理）
 
-### 5.3 生成 progress.json
-- 填入 projectName, projectType
-- currentPhase: "initialized"
-- totalTasks: 任务总数
-- completedTasks: 0
-- changeHistory: []
-- 写入项目根目录 `progress.json`
+1. 拼接查询语料：`"<audience> <design_keywords> target stack: Vue 3 + Tailwind v4"`
+2. 调用：
+   ```bash
+   python3 .claude/skills/ui-ux-pro-max/src/ui-ux-pro-max/scripts/search.py \
+       "<查询语料>" --design-system -p "<project_name>" -f markdown
+   ```
+3. 将 stdout 的 markdown 写入项目根 `DESIGN.md`（不要用 `--persist`，我们不要 `design-system/` 子目录）
 
-## Phase 6：任务拆解确认
+### 分支 B — /design-skill（品牌预设）
 
-生成 task.json 后，展示任务列表的**分组概览**（按模块分组），格式：
+1. 提示用户用浏览器打开 `.claude/skills/design-skill/preview.html` 浏览 68 套
+2. 等用户给编号或名称
+3. 拷贝 `.claude/skills/design-skill/design-md/<brand>.md` 到项目根 `DESIGN.md`
+
+### 分支 C — 跳过
+
+写入项目根 DESIGN.md 的中性默认骨架：
+```markdown
+# DESIGN.md（默认中性主题）
+
+## Color Palette
+- primary: #0f172a
+- background: #ffffff
+- foreground: #0f172a
+- muted: #f1f5f9
+- muted-foreground: #64748b
+- border: #e2e8f0
+
+## Typography
+- sans: Inter
+- mono: JetBrains Mono
+
+## Layout
+- radius: 0.5rem
+- spacing base: 0.25rem
+```
+
+### 同步注入 Tailwind @theme
+
+设计产物就位后（任意分支）：
+```bash
+python .claude/skills/init-web/scripts/apply_design_tokens.py \
+    --design-md ./DESIGN.md \
+    --target frontend/src/style.css
+```
+仅当前端存在（T1/T2/T3）时执行。
+
+---
+
+## Phase 5：技术调研
+
+针对 Phase 2 提到会用到的关键库（不要全查），用 Context7 MCP：
+- `resolve-library-id` 拿到库 ID
+- `query-docs` 查最新 API
+
+对不确定的技术问题用 WebSearch。调研笔记先存在内存，Phase 6 写入 spec.md 的「技术发现」章节。
+
+---
+
+## Phase 6：生成三件套
+
+### 6.1 spec.md
+
+读取 `templates/spec.md`，按 Phase 1-5 的产物填充：
+- 概览（含 Tier）
+- 目标用户（来自 `audience`）
+- 核心用户旅程（来自 `primary_journey`）
+- 技术栈（固定 Vue+Tailwind+FastAPI，补数据库等细节）
+- 设计方案摘要（来源 / 调性 / 主色 / 字体 —— 主色字体从 DESIGN.md 抽）
+- 核心功能（来自 `mvp_in_scope`）
+- 架构设计（Phase 2 的结论）
+- MVP 边界（in-scope / out-of-scope）
+- 非功能需求（来自 `constraints`）
+- 经验与约束（留空章节，由 /learn 填充）
+
+### 6.2 task.json
+
+将 MVP 拆成原子任务。每个任务必须包含 `origin: "init"` 字段（对应 /change 会使用的 `origin: "change"`），以及 `changeRef: null`、`dependencies: []`、`files: []`、`complexity: "low|medium|high"`、`notes`。
+
+必要的"衔接任务"：
+- `#1 应用 DESIGN.md 到 Tailwind @theme`（files: `frontend/src/style.css`；complexity: `low`）
+  如果 Phase 4 已经执行了 `apply_design_tokens.py`，这个任务可以直接标 `completed`
+- `#2 基础布局与导航骨架`（T2/T3 需要）
+- 之后按 entities + mvp_in_scope 拆
+
+**粒度规则**：每个任务 1 个 session 可完成。按 Tier 控制总量：
+- T1 → 建议 5-8 任务
+- T2 → 10-15 任务
+- T3 → 20-30 任务
+- TB → 8-15 任务
+
+### 6.3 progress.json
+
+- `projectName` = 用户项目名
+- `tier` = 推导出的 Tier（如 `T3+TB`）
+- `currentPhase` = `"initialized"`
+- `totalTasks` = 任务总数
+- `completedTasks` = 0（除非 #1 已完成）
+- `changeHistory` = `[]`
+
+---
+
+## Phase 7：任务拆解确认
+
+按模块分组展示任务概览：
 
 ```
 ## 任务概览（共 X 个任务）
 
-### 模块 A（X 个任务）
-- #1 任务标题 [complexity]
-- #2 任务标题 [complexity] → 依赖 #1
+### 基础设施（X 个）
+- #1 应用 DESIGN.md 到 Tailwind @theme [low]
+- ...
 
-### 模块 B（X 个任务）
-- #3 任务标题 [complexity]
-...
+### 核心功能（X 个）
+- #2 ...
 ```
 
-询问用户：
 > 任务拆解是否合理？需要调整粒度、增删任务、或修改优先级吗？
 
-**等用户确认后才继续。**
+**等用户任务拆解确认后才继续。**
 
-## Phase 6.5：经验提炼
+---
 
-执行 /learn 逻辑，将本次 init 对话中的隐性知识提炼到 spec.md 的「经验与约束」章节：
-- 用户表达的编码风格、UI/UX 细节、明确拒绝的方案
-- 技术调研中发现的重要注意事项（版本兼容、配置要求）
-- 用户提到但未写入其他章节的隐含约束
+## Phase 8：经验提炼
 
-经验内容直接写入 spec.md，由 Phase 7 统一提交（不独立 commit）。
+执行 /learn 逻辑，把本轮访谈中暴露的隐性偏好写入 spec.md 的「经验与约束」章节：
+- 用户明确拒绝的方案
+- 编码 / UI / UX 偏好
+- 技术调研中发现的注意事项
 
-## Phase 7：提交
+---
 
-确认后：
-1. 如果还没有 git 仓库，执行 `git init`
-2. `git add spec.md task.json progress.json`
-3. `git commit -m "feat: initialize project specification and task list"`
+## Phase 9：提交
 
-提示用户可以运行 `/work` 开始自主开发。
+1. 若无 git 仓库：`git init`
+2. 分两次提交（脚手架和文档分开）：
+   ```bash
+   git add frontend/ backend/
+   git commit -m "chore: scaffold web project (Tier <tier>)"
+
+   git add spec.md task.json progress.json DESIGN.md
+   git commit -m "feat: initialize project spec, tasks, and design system"
+   ```
+
+输出收尾：
+> ✅ 项目已初始化。运行 `/work` 开始自主开发。

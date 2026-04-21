@@ -124,7 +124,7 @@ describe('session-start-inject.js', () => {
   it('有 progress.json 时输出进度摘要', async () => {
     const progress = {
       projectName: 'TestApp',
-      projectType: 'web',
+      tier: 'T3',
       currentPhase: 'in_progress',
       totalTasks: 10,
       completedTasks: 3,
@@ -143,7 +143,7 @@ describe('session-start-inject.js', () => {
   it('有阻塞任务时输出警告', async () => {
     const progress = {
       projectName: 'TestApp',
-      projectType: 'web',
+      tier: 'T3',
       currentPhase: 'in_progress',
       totalTasks: 10,
       completedTasks: 3,
@@ -158,7 +158,7 @@ describe('session-start-inject.js', () => {
   });
 
   it('有 .work-stop 文件时输出停止信号', async () => {
-    const progress = { projectName: 'X', projectType: 'web', currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2, lastSession: { tasksCompleted: [] }, blockedTasks: [] };
+    const progress = { projectName: 'X', tier: 'T3', currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2, lastSession: { tasksCompleted: [] }, blockedTasks: [] };
     fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify(progress));
     const claudeDir = path.join(tmpDir, '.claude');
     fs.mkdirSync(claudeDir, { recursive: true });
@@ -172,7 +172,7 @@ describe('session-start-inject.js', () => {
 
   it('有验证失败记录时输出', async () => {
     const progress = {
-      projectName: 'X', projectType: 'web', currentPhase: 'in_progress',
+      projectName: 'X', tier: 'T3', currentPhase: 'in_progress',
       totalTasks: 5, completedTasks: 2,
       lastSession: { tasksCompleted: [] }, blockedTasks: [],
       verifyFailures: [{ taskId: 3, reason: '编译失败 - 缺少依赖' }],

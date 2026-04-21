@@ -1,0 +1,16 @@
+@import "tailwindcss";
+
+/* @theme 块由 apply_design_tokens.py 从项目根 DESIGN.md 注入。
+   首次脚手架后若 DESIGN.md 尚未就绪，保留下面的中性默认值，
+   /work 循环会在"应用 DESIGN.md 到 @theme"任务中覆盖它。 */
+@theme {
+  --color-primary: #0f172a;
+  --color-background: #ffffff;
+  --color-foreground: #0f172a;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-border: #e2e8f0;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius: 0.5rem;
+}

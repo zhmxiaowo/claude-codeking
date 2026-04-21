@@ -17,21 +17,36 @@
 - Fluent API 风格：`element.style({...}).on('click', handler).appendTo(parent)`
 
 ## 目录组织
+
+前端代码放在项目根 `frontend/`，后端代码放在项目根 `backend/`。
+
 ```
-src/
+frontend/src/
 ├── components/    # UI 组件（一个文件一个组件）
 ├── services/      # API 调用 / 业务逻辑
-├── stores/        # 状态管理
-├── utils/         # 纯工具函数
+├── stores/        # 状态管理（Pinia，T2+）
+├── composables/   # VueUse 风格的组合式函数
+├── router/        # 路由（T2+）
+├── views/         # 页面（T2+）
+├── lib/           # 工具函数（utils.ts, request.ts）
 ├── types/         # TypeScript 接口/类型定义
-├── hooks/         # 自定义 hooks（React）/ composables（Vue）
 └── assets/        # 静态资源
+
+backend/app/
+├── api/           # 路由层（含 v1/）
+├── core/          # 配置与安全
+├── models/        # SQLModel 持久化模型
+├── schemas/       # Pydantic 请求/响应模型
+├── services/      # 业务逻辑
+└── db/            # session / engine
 ```
 
 ## 代码规范
 - 组件 props 必须有类型定义
 - API 返回值必须有类型定义
 - 禁止 any 类型（除非有注释说明原因）
+- 后端所有路由必须有 `response_model`
+- SQLModel 与 Pydantic schema 分层，不让持久化模型直接出现在 API 响应里
 
 ## 测试
 - 使用 Playwright 进行 E2E 测试
@@ -40,13 +55,17 @@ src/
 - API 集成测试使用真实请求，禁止 mock 数据库
 
 ## 视觉设计规范
-- 读取项目根目录 `ui-config.json`，使用其中指定的 CSS 框架和图标库
-- 具体 CDN 链接和用法参考 `.claude/skills/ui-setup/ui-stacks.md`
-- 禁止混用多个 CSS 框架
-- 全项目图标风格统一，只用 ui-config.json 中指定的图标库
-- 每个页面/组件首次实现必须包含合理的视觉元素（图标、配图），不允许纯文字 UI
+- 所有 UI 决策必须先读项目根 `DESIGN.md`（由 `/ui-ux-pro-max` 或 `/design-skill` 产出）
+- 禁止在组件中硬编码 hex 颜色；所有颜色走 Tailwind `@theme` 变量（映射自 DESIGN.md 的 Color Palette）
+- 字体家族与字号走 DESIGN.md 的 Typography Rules
+- 图标只能用 `@iconify/vue`（通用）或 `lucide-vue-next`（仅 T3 shadcn-vue 场景）。禁止安装其他独立图标包（`@heroicons/vue`、`phosphor-vue`、`@fortawesome/*` 等），其他风格统一走 iconify
+- 每个页面/组件首次实现必须包含合理视觉元素（图标 / 配图），不允许纯文字 UI
 - 配图规则：
-  - 固定尺寸占位图：用 `picsum_pattern`（如 `https://picsum.photos/800/400`）
-  - 需要真实配图且 pexels_key 非空：运行 `.claude/skills/ui-setup/scripts/fetch_image.py`
+  - 固定尺寸占位图用 `https://picsum.photos/{width}/{height}`
   - 所有 `<img>` 必须设置 width/height 或 aspect-ratio
-- 如需更换视觉方案，运行 `/ui-setup` 重新选择
+- 如需更换设计方案：`/ui-ux-pro-max` 重跑推理，或 `/design-skill` 换预设，二者都会覆盖项目根 `DESIGN.md`
+
+## 版本锁定
+- 后端：`uv.lock` 必须提交；禁止使用 `requirements.txt`
+- 前端：`package-lock.json` 必须提交
+- 环境变量：`.env.example` 必须提交；`.env` 必须进 `.gitignore`；后端配置走 `pydantic-settings`，不直接读 `os.environ`

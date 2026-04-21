@@ -35,23 +35,38 @@ describe('模板文件验证', () => {
       assert.ok(content.includes('项目名称'));
     });
 
-    it('应包含项目类型字段（web | game-engine）', () => {
-      assert.ok(content.includes('web') && content.includes('game-engine'));
+    it('应包含 Tier 字段（T1/T2/T3/TB）', () => {
+      assert.ok(content.includes('Tier'));
+      assert.ok(content.includes('T1') && content.includes('T2') && content.includes('T3') && content.includes('TB'));
+    });
+
+    it('不应残留 projectType / game-engine', () => {
+      assert.ok(!content.includes('game-engine'), 'spec.md 不应引用 game-engine');
+      assert.ok(!content.includes('项目类型'), 'spec.md 不应保留 项目类型 字段');
     });
 
     it('应包含目标用户章节', () => {
       assert.ok(content.includes('## 目标用户'));
     });
 
+    it('应包含核心用户旅程章节', () => {
+      assert.ok(content.includes('## 核心用户旅程'));
+    });
+
     it('应包含技术栈章节', () => {
       assert.ok(content.includes('## 技术栈'));
+    });
+
+    it('应包含设计方案章节（指向 DESIGN.md）', () => {
+      assert.ok(content.includes('## 设计方案'));
+      assert.ok(content.includes('DESIGN.md'));
     });
 
     it('应包含核心功能章节', () => {
       assert.ok(content.includes('## 核心功能'));
     });
 
-    it('应包含架构设计章节（新增）', () => {
+    it('应包含架构设计章节', () => {
       assert.ok(content.includes('## 架构设计'));
     });
 
@@ -77,6 +92,16 @@ describe('模板文件验证', () => {
 
     it('应包含非功能需求章节', () => {
       assert.ok(content.includes('## 非功能需求'));
+    });
+
+    it('应包含 MVP 边界章节', () => {
+      assert.ok(content.includes('## MVP 边界'));
+      assert.ok(content.includes('In-Scope'));
+      assert.ok(content.includes('Out-of-Scope'));
+    });
+
+    it('应包含经验与约束章节', () => {
+      assert.ok(content.includes('## 经验与约束'));
     });
   });
 
@@ -143,12 +168,12 @@ describe('模板文件验证', () => {
       assert.ok('notes' in sampleTask);
     });
 
-    it('task 应有 origin 字段（新增）', () => {
+    it('task 应有 origin 字段', () => {
       assert.ok('origin' in sampleTask);
       assert.ok(['init', 'change'].includes(sampleTask.origin));
     });
 
-    it('task 应有 changeRef 字段（新增）', () => {
+    it('task 应有 changeRef 字段', () => {
       assert.ok('changeRef' in sampleTask);
     });
   });
@@ -174,9 +199,13 @@ describe('模板文件验证', () => {
       assert.ok('projectName' in data);
     });
 
-    it('应有 projectType 字段', () => {
-      assert.ok('projectType' in data);
-      assert.ok(['web', 'game-engine'].includes(data.projectType));
+    it('应有 tier 字段（替换 projectType）', () => {
+      assert.ok('tier' in data);
+      assert.strictEqual(typeof data.tier, 'string');
+    });
+
+    it('不应残留 projectType 字段', () => {
+      assert.ok(!('projectType' in data), 'progress.json 不应保留 projectType');
     });
 
     it('应有 currentPhase 字段', () => {
@@ -210,7 +239,7 @@ describe('模板文件验证', () => {
       assert.ok(Array.isArray(data.blockedTasks));
     });
 
-    it('应有 changeHistory 数组（新增）', () => {
+    it('应有 changeHistory 数组', () => {
       assert.ok(Array.isArray(data.changeHistory));
       assert.strictEqual(data.changeHistory.length, 0);
     });
@@ -219,17 +248,14 @@ describe('模板文件验证', () => {
 
 describe('模板间一致性验证', () => {
   it('task.json 的 status 值域应覆盖所有流程需要的状态', () => {
-    // 框架使用的状态: pending, in_progress, completed, blocked, cancelled
-    // task.json 模板中示例为 pending，但文档中定义了完整值域
     const taskContent = fs.readFileSync(path.join(TEMPLATES_DIR, 'task.json'), 'utf8');
     assert.ok(taskContent.includes('pending'), '应包含 pending 状态');
   });
 
-  it('progress.json 的 projectType 值域应与 spec.md 一致', () => {
+  it('spec.md 和 progress.json 都不应引用 game-engine', () => {
     const specContent = fs.readFileSync(path.join(TEMPLATES_DIR, 'spec.md'), 'utf8');
-    const progressData = JSON.parse(fs.readFileSync(path.join(TEMPLATES_DIR, 'progress.json'), 'utf8'));
-    // spec.md 定义 web | game-engine
-    assert.ok(specContent.includes('web') && specContent.includes('game-engine'));
-    assert.ok(['web', 'game-engine'].includes(progressData.projectType));
+    const progressContent = fs.readFileSync(path.join(TEMPLATES_DIR, 'progress.json'), 'utf8');
+    assert.ok(!specContent.includes('game-engine'));
+    assert.ok(!progressContent.includes('game-engine'));
   });
 });
