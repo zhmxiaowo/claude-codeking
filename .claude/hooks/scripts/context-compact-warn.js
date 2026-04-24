@@ -1,13 +1,11 @@
 #!/usr/bin/env node
 // Stop hook: 通过 transcript 长度估算 context 占用，提醒压缩
 const fs = require('fs');
+const { readStdinJson, normalize } = require('./_common/normalize');
 
-let input = '';
-process.stdin.on('data', c => input += c);
-process.stdin.on('end', () => {
+readStdinJson(raw => {
   try {
-    const data = JSON.parse(input || '{}');
-    const transcriptPath = data.transcript_path || data.transcriptPath;
+    const { transcriptPath } = normalize(raw);
     if (!transcriptPath || !fs.existsSync(transcriptPath)) return process.exit(0);
 
     const stat = fs.statSync(transcriptPath);

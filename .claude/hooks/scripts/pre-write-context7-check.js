@@ -1,14 +1,16 @@
 #!/usr/bin/env node
-// PreToolUse (Write/Edit) hook: 检测第三方 import，若近 24h 未查 Context7 则 stderr 警告
+// PreToolUse (Write/Edit/create_file/replace_string_in_file) hook:
+// 检测第三方 import，若近 24h 未查 Context7 则 stderr 警告
 const fs = require('fs');
 const path = require('path');
+const { readStdinJson, normalize, isTool, getWriteBody } = require('./_common/normalize');
 
-let input = '';
-process.stdin.on('data', c => input += c);
-process.stdin.on('end', () => {
+readStdinJson(raw => {
   try {
-    const data = JSON.parse(input || '{}');
-    const content = (data.tool_input?.content || data.tool_input?.new_string || '') + '';
+    const { toolName, toolInput } = normalize(raw);
+    if (!isTool(toolName, 'write')) return process.exit(0);
+
+    const content = getWriteBody(toolInput) + '';
     if (!content) return process.exit(0);
 
     // 提取 import 的 package 名（过滤相对路径 / node builtins）
@@ -19,7 +21,6 @@ process.stdin.on('end', () => {
     while ((m = importRegex.exec(content)) !== null) {
       const spec = m[1];
       if (spec.startsWith('.') || spec.startsWith('/') || builtins.has(spec)) continue;
-      // @scope/name 取前两段；name 取第一段
       const parts = spec.split('/');
       const pkg = spec.startsWith('@') ? parts.slice(0,2).join('/') : parts[0];
       pkgs.add(pkg);

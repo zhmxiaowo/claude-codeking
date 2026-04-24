@@ -1,11 +1,13 @@
 #!/usr/bin/env node
-// PreToolUse (Bash) hook: 阻止危险命令（--no-verify / push --force / rm -rf /）
-let input = '';
-process.stdin.on('data', c => input += c);
-process.stdin.on('end', () => {
+// PreToolUse (Bash/run_in_terminal) hook: 阻止危险命令（--no-verify / push --force / rm -rf /）
+const { readStdinJson, normalize, isTool, getCommand } = require('./_common/normalize');
+
+readStdinJson(raw => {
   try {
-    const data = JSON.parse(input || '{}');
-    const cmd = (data.tool_input?.command || '') + '';
+    const { toolName, toolInput } = normalize(raw);
+    if (!isTool(toolName, 'bash')) return process.exit(0);
+
+    const cmd = getCommand(toolInput) + '';
     if (!cmd) return process.exit(0);
 
     const patterns = [
@@ -19,7 +21,7 @@ process.stdin.on('end', () => {
     for (const p of patterns) {
       if (p.re.test(cmd)) {
         process.stderr.write(`🚫 危险命令阻止：${p.msg}\n  命令：${cmd}\n`);
-        process.exit(2); // exit 2 blocks the tool call
+        process.exit(2); // exit 2 blocks the tool call (both Claude Code & Copilot)
       }
     }
   } catch (e) {}

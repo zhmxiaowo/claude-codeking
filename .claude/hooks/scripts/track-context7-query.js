@@ -2,18 +2,18 @@
 // PostToolUse (mcp__*context7*__*) hook: 记录被查询的 package 到缓存
 const fs = require('fs');
 const path = require('path');
+const { readStdinJson, normalize, isTool } = require('./_common/normalize');
 
-let input = '';
-process.stdin.on('data', c => input += c);
-process.stdin.on('end', () => {
+readStdinJson(raw => {
   try {
-    const data = JSON.parse(input || '{}');
-    const toolName = data.tool_name || '';
-    if (!toolName.includes('context7')) return process.exit(0);
+    const { toolName, toolInput } = normalize(raw);
+    if (!isTool(toolName, 'mcpContext7')) return process.exit(0);
 
-    // 从 tool_input 中提取 libraryName / library-id
-    const ti = data.tool_input || {};
-    const pkg = ti.libraryName || ti.library_name || ti.libraryID || ti.library_id || ti.package || '';
+    // 从 tool_input 中提取 libraryName / library-id（Claude/Copilot 各家字段名都兜住）
+    const ti = toolInput || {};
+    const pkg = ti.libraryName || ti.library_name
+             || ti.libraryID   || ti.library_id
+             || ti.package     || '';
     if (!pkg) return process.exit(0);
     const key = pkg.toString().replace(/^\//, '').split('/').slice(0,2).join('/');
 

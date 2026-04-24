@@ -1,4 +1,6 @@
-# Claude Code 万能工程模板
+# Claude Code + VS Code Copilot 双平台万能工程模板
+
+本模板同时支持 **Claude Code CLI** 与 **VS Code Copilot**：agents、skills、hooks、MCP 均存放在 `.claude/` 单源目录下，两平台原生识别。VS Code Copilot 的入口文件 `.github/copilot-instructions.md` 指向本文件作为共同指令源。
 
 ## Session 启动协议
 
@@ -52,8 +54,8 @@
 | 查询库/框架文档 | Context7 MCP（resolve-library-id → query-docs） |
 | Web UI 测试 | Playwright MCP（browser_navigate → browser_snapshot → browser_console_messages） |
 | 通用搜索 | WebSearch |
-| 代码评审 | 启动 code-reviewer agent |
-| 测试验证 | 启动 qa-verifier agent |
+| 代码评审 | 启动 code-reviewer agent（Copilot 下用 `@code-reviewer`） |
+| 测试验证 | 启动 qa-verifier agent（Copilot 下用 `@qa-verifier`） |
 
 ## 核心工作流
 
