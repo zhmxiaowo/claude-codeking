@@ -26,6 +26,7 @@ user-invocable: true
 - 变更涉及哪些未开始的任务
 - 是否需要新增任务
 - 是否有任务需要取消
+- 是否需要重划 `doneWhen`、`verificationLevel` 或模块里程碑边界
 
 ## Step 3: 输出变更方案
 
@@ -53,6 +54,7 @@ user-invocable: true
 
 **spec.md 更新**：
 - [章节名] → [变更内容概述]
+- 如果影响验收方式，明确指出「验证与验收策略」如何调整
 ```
 
 询问用户：
@@ -80,6 +82,13 @@ user-invocable: true
 | 删除功能 | 将 pending task 的 status 改为 `cancelled` |
 
 **新增 task 的 ID 规则**：取当前最大 id + 1。
+
+无论是新增还是修改任务，都要同步维护：
+- `changeArea`
+- `doneWhen`
+- `verificationLevel`
+
+如果变更导致多个连续任务更适合共享一次模块验收，直接调整这些任务的 `verificationLevel` 为 `milestone`，而不是保留“每任务一次重型 QA”的默认假设。
 
 ### 4.3 更新 progress.json
 

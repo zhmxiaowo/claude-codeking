@@ -32,13 +32,13 @@ const EXPECTED_SKILLS = [
     name: 'init-project',
     requiredFields: ['name', 'description', 'user-invocable'],
     requiredSections: ['Phase 1', 'Phase 2', 'Phase 3', 'Phase 4', 'Phase 5', 'Phase 6', 'Phase 7'],
-    requiredContent: ['第一性原理', '架构设计', '任务拆解确认', 'spec.md', 'task.json', 'progress.json'],
+    requiredContent: ['第一性原理', '架构设计', '任务拆解确认', 'spec.md', 'task.json', 'progress.json', 'doneWhen', 'verificationLevel'],
   },
   {
     name: 'work',
     requiredFields: ['name', 'description', 'user-invocable'],
     requiredSections: ['Startup', 'Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Step 6', 'Step 7'],
-    requiredContent: ['永不停止', '绝对禁止提前停止', '编译验证', 'cancelled', '.work-stop', 'Context7'],
+    requiredContent: ['永不停止', '绝对禁止提前停止', '编译验证', 'cancelled', '.work-stop', 'Context7', 'doneWhen', 'milestone', 'qa-verifier'],
   },
   {
     name: 'stopwork',
@@ -50,7 +50,7 @@ const EXPECTED_SKILLS = [
     name: 'change',
     requiredFields: ['name', 'description', 'user-invocable'],
     requiredSections: ['Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Step 6'],
-    requiredContent: ['spec.md', 'task.json', 'progress.json', 'cancelled', 'origin', 'changeRef', 'changeHistory'],
+    requiredContent: ['spec.md', 'task.json', 'progress.json', 'cancelled', 'origin', 'changeRef', 'changeHistory', 'verificationLevel'],
   },
   {
     name: 'review',
@@ -133,6 +133,15 @@ describe('Skill 交叉一致性验证', () => {
   it('/init-project 应生成与 /change 兼容的 task 格式（含 origin 字段）', () => {
     const initContent = fs.readFileSync(path.join(SKILLS_DIR, 'init-project', 'SKILL.md'), 'utf8');
     assert.ok(initContent.includes('origin'), '/init-project 生成的 task 应包含 origin 字段');
+  });
+
+  it('/init-project 与 /work 应共享验收字段', () => {
+    const initContent = fs.readFileSync(path.join(SKILLS_DIR, 'init-project', 'SKILL.md'), 'utf8');
+    const workContent = fs.readFileSync(path.join(SKILLS_DIR, 'work', 'SKILL.md'), 'utf8');
+    assert.ok(initContent.includes('doneWhen'), '/init-project 应生成 doneWhen');
+    assert.ok(workContent.includes('doneWhen'), '/work 应消费 doneWhen');
+    assert.ok(initContent.includes('verificationLevel'), '/init-project 应生成 verificationLevel');
+    assert.ok(workContent.includes('verificationLevel'), '/work 应消费 verificationLevel');
   });
 
   it('/stopwork 应提示用户使用 /change 和 /work', () => {

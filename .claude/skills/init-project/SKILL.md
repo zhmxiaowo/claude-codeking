@@ -1,7 +1,7 @@
 ---
 name: init-project
 description: 交互式项目需求收集与打磨。通过第一性原理提问、架构共识确认、任务拆解确认，生成 spec.md、task.json、progress.json 三件套。
-argument-hint: [项目名称或简短描述]
+argument-hint: <项目名称或简短描述>
 user-invocable: true
 ---
 
@@ -71,13 +71,22 @@ user-invocable: true
 - 读取 `templates/spec.md` 获取结构
 - 用收集的需求填充每个章节
 - **必须包含 Architecture 章节**：记录 Phase 3 确认的架构设计
+- **必须包含「验证与验收策略」章节**：说明 local / slice / milestone / release 四层验证，以及模块里程碑如何划分
 - 写入项目根目录 `spec.md`
 
 ### 5.2 生成 task.json
 - 将 spec.md 中的功能拆解为原子任务
-- 每个任务包含：id, title, description, status("pending"), dependencies, complexity, files, notes, origin("init")
+- 每个任务包含：id, title, description, status("pending"), dependencies, complexity, changeArea, doneWhen, verificationLevel, files, notes, origin("init")
 - 任务按依赖关系排序（基础设施 → 核心功能 → UI → 测试 → 部署）
 - 粒度控制：每个任务应在 1 个 session 内可完成
+- `changeArea` 用于标记任务主要影响的技术区域：`core` / `api` / `ui` / `editor` / `runtime` / `infra` / `cross-cutting`
+- `doneWhen` 必须是可观察、可验证的完成条件，不写“代码已完成”这种自证语句
+- `verificationLevel` 只分四档：
+	- `local`：最便宜的窄验证
+	- `slice`：验证当前任务对应的一条功能闭环
+	- `milestone`：多个连续任务共享一次模块级验收
+	- `release`：模块收口、合并、部署前的完整回归
+- 如果多个连续任务共同组成一个完整模块，允许它们共享一次 `milestone` 验收；不要为每个微任务都分配重型 QA
 - 写入项目根目录 `task.json`
 
 ### 5.3 生成 progress.json
