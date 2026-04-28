@@ -75,6 +75,22 @@ describe('模板文件验证', () => {
       assert.ok(content.includes('### 关键决策'));
     });
 
+    it('应包含验证与验收策略章节（新增）', () => {
+      assert.ok(content.includes('## 验证与验收策略'));
+    });
+
+    it('验证与验收策略应包含验收层级子章节', () => {
+      assert.ok(content.includes('### 验收层级'));
+    });
+
+    it('验证与验收策略应包含模块里程碑子章节', () => {
+      assert.ok(content.includes('### 模块里程碑'));
+    });
+
+    it('验证与验收策略应包含用户可见质量标准子章节', () => {
+      assert.ok(content.includes('### 用户可见质量标准'));
+    });
+
     it('应包含非功能需求章节', () => {
       assert.ok(content.includes('## 非功能需求'));
     });
@@ -133,6 +149,21 @@ describe('模板文件验证', () => {
     it('task 应有 complexity 字段', () => {
       assert.ok('complexity' in sampleTask);
       assert.ok(['low', 'medium', 'high'].includes(sampleTask.complexity));
+    });
+
+    it('task 应有 changeArea 字段（新增）', () => {
+      assert.ok('changeArea' in sampleTask);
+      assert.ok(['core', 'api', 'ui', 'editor', 'runtime', 'infra', 'cross-cutting'].includes(sampleTask.changeArea));
+    });
+
+    it('task 应有 doneWhen 数组（新增）', () => {
+      assert.ok(Array.isArray(sampleTask.doneWhen));
+      assert.ok(sampleTask.doneWhen.length > 0);
+    });
+
+    it('task 应有 verificationLevel 字段（新增）', () => {
+      assert.ok('verificationLevel' in sampleTask);
+      assert.ok(['local', 'slice', 'milestone', 'release'].includes(sampleTask.verificationLevel));
     });
 
     it('task 应有 files 数组', () => {

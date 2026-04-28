@@ -694,7 +694,7 @@ Phase 6: 确认与提交
                    │
           ┌────────▼────────┐
           │  Step 1: Plan   │ ← Context7 查文档
-          │  简要实施计划    │ ← 确认依赖已完成
+          │  验收契约对齐     │ ← 确认依赖已完成
           └────────┬────────┘
                    │
           ┌────────▼────────┐
@@ -703,27 +703,36 @@ Phase 6: 确认与提交
           └────────┬────────┘
                    │
           ┌────────▼────────┐
-          │ Step 3: Review  │ ← code-reviewer Agent
-          │ GAN 式评审      │ ← 修复 critical + warning
+          │ Step 3: Review  │ ← 仅高风险时启用 code-reviewer
+          │ 条件式评审      │ ← 微任务默认作者自检
           └────────┬────────┘
                    │
           ┌────────▼────────┐
-          │  Step 4: Test   │ ← qa-verifier Agent
-          │  Web: Playwright│ ← 游戏: 编译+单测
+          │ Step 4: Build   │ ← 硬性编译门禁
+          │ Step 5: Validate│ ← 分层验证 / milestone QA
           └────────┬────────┘
                    │
           ┌────────▼────────┐
-          │ Step 5: Commit  │ ← git add (具体文件)
+          │ Step 6: Commit  │ ← git add (具体文件)
           │ 更新 progress   │ ← 更新 task.json
           └────────┬────────┘
                    │
           ┌────────▼────────┐
-          │ Step 6: Continue│ ← 取下一个 pending 任务
+          │ Step 7: Continue│ ← 取下一个 pending 任务
           │ 永不停止        │ ← 全部完成或阻塞才停
           └────────┬────────┘
                    │
                    ▼ (回到 Step 1)
 ```
+
+**现在的最小增强有两点：**
+1. 每个任务都带最小验收契约：`changeArea`、`doneWhen`、`verificationLevel`
+2. 验证改成四层：`local` → `slice` → `milestone` → `release`
+
+这两个变化的价值很直接：
+- QA 不再被迫为每个微任务付出最长等待时间
+- 评审和 QA 都有了明确触发条件，而不是“只要改了代码就全跑一遍”
+- Web 和游戏引擎都能套用同一套抽象：route / API / page state 对应 scene / editor / runtime loop
 
 **错误恢复机制：**
 1. 在 progress.json 的 notes 中记录错误
@@ -749,6 +758,11 @@ Phase 6: 确认与提交
 - 只报告置信度 ≥ 80 的问题
 - 按严重程度排序：critical > warning > info
 - 不做风格 nitpick
+
+**调用原则：**
+- `code-reviewer` 是高风险 / 跨边界改动的门禁，不是每个微任务的固定税
+- 默认先作者自检，对照 `doneWhen` 和最可能出错的边界条件
+- 当任务涉及公开接口、并发、安全、持久化、runtime 核心路径时，再升级为外部评审
 
 ---
 
@@ -809,10 +823,10 @@ UI：Builder 模式 + Fluent API
 | 工具 | 用途 | 使用时机 |
 |------|------|---------|
 | **Context7 MCP** | 查询库/框架最新文档 | 写代码前必查 |
-| **Playwright MCP** | Web UI 自动化测试 | Step 4: Test |
+| **Playwright MCP** | Web UI / 编辑器闭环验证 | Step 5: Validate |
 | **WebSearch** | 搜索通用技术问题 | 遇到未知技术 |
-| **code-reviewer Agent** | 代码质量评审 | Step 3: Review |
-| **qa-verifier Agent** | 端到端测试验证 | Step 4: Test |
+| **code-reviewer Agent** | 高风险代码评审 | Step 3: Review |
+| **qa-verifier Agent** | 模块 / 发布验证 | Step 5: Validate |
 
 ### Context7 使用流程
 
@@ -903,7 +917,13 @@ claude
 **A:** "三行相似代码优于一个过早抽象"。过度封装增加理解成本，增加 Agent 的上下文消耗（文章 #2），而且 Agent 生成的抽象层往往不如人类设计的精炼。
 
 ### Q: /work 循环会不会消耗太多 Token？
-**A:** 会，但这是有意的设计。多 Agent 系统的 token 消耗约为普通聊天的 15 倍（文章 #7），但对于实际的软件项目，这个投入回报比极高——你得到的是经过评审和测试验证的可工作代码。
+**A:** 会，但现在不再把昂贵验证平均摊到每个微任务。最新公开实践已经证明，evaluator 不是固定的 yes/no 组件，而是只在任务落到模型能力边界之外时才真正有价值。这个模板现在把外部 review 和 QA 推迟到高风险、模块里程碑和发布阶段，平时优先跑最窄的可执行验证。
+
+### Q: qa-verifier 为什么不能每个任务都跑一次？
+**A:** 因为最慢的验证不应该成为默认验证。QA 的价值来自独立视角和真实运行证据，但它的代价也最高。对一个低风险微任务，编译、窄测试、局部 smoke 通常已经足够；把 QA 改成模块级 `milestone` 和发布级 `release`，收益更高，等待更低。
+
+### Q: 为什么 Web 页面的一些细微不雅观、差一点的地方，QA 总是根治不了？
+**A:** 因为那不是纯 QA 问题，而是设计约束没有在前面写清楚。QA 更擅长发现“坏了、错了、断了”，不擅长稳定地定义“到底够不够好看”。正确做法是把这些要求前置成可观察的验收标准，写进 spec 和 `doneWhen`：例如层级、密度、状态、空态、移动端不破版。没有前置标准，末端 QA 只能不断给出主观建议，既慢又不稳定。
 
 ### Q: 如何处理 /work 过程中的上下文耗尽？
 **A:** 文章 #3 和 #4 给出了答案：

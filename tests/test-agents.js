@@ -48,6 +48,8 @@ const EXPECTED_AGENTS = [
       '修复建议',
       // 严格顺序
       '前一步失败则停止',
+      // 分层验证
+      'doneWhen', 'milestone', 'release', 'slice', 'smoke',
     ],
     forbiddenContent: [],
   },

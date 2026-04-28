@@ -129,6 +129,32 @@ describe('CLAUDE.md 主文档验证', () => {
   });
 
   // ========================================
+  // 验证分层原则
+  // ========================================
+  describe('验证分层原则', () => {
+    it('应包含验证分层原则章节', () => {
+      assert.ok(CLAUDE_MD.includes('验证分层原则'));
+    });
+
+    it('应包含任务验收字段', () => {
+      assert.ok(CLAUDE_MD.includes('changeArea'));
+      assert.ok(CLAUDE_MD.includes('doneWhen'));
+      assert.ok(CLAUDE_MD.includes('verificationLevel'));
+    });
+
+    it('应包含四层验证级别', () => {
+      assert.ok(CLAUDE_MD.includes('local'));
+      assert.ok(CLAUDE_MD.includes('slice'));
+      assert.ok(CLAUDE_MD.includes('milestone'));
+      assert.ok(CLAUDE_MD.includes('release'));
+    });
+
+    it('应说明 qa-verifier 不是每任务必跑', () => {
+      assert.ok(CLAUDE_MD.includes('不是每个微任务必跑'));
+    });
+  });
+
+  // ========================================
   // 工具使用指南
   // ========================================
   describe('工具使用指南', () => {

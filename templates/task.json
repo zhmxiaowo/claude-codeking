@@ -7,6 +7,11 @@
       "status": "pending",
       "dependencies": [],
       "complexity": "medium",
+      "changeArea": "api",
+      "doneWhen": [
+        "可以被直接验证的完成条件"
+      ],
+      "verificationLevel": "slice",
       "files": [],
       "notes": "",
       "origin": "init",

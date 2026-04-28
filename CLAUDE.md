@@ -45,21 +45,32 @@
 - 提交信息格式：`feat/fix/refactor: [描述] - task #[id]`
 - 进度更新单独提交：`chore: update progress - task #[id] completed`
 
+## 验证分层原则
+
+- task.json 中的每个任务应尽量补齐：`changeArea`、`doneWhen`、`verificationLevel`
+- **local**：最便宜的窄验证，适合纯内部逻辑、局部重构、单一 system/组件修改
+- **slice**：只验证当前任务涉及的那条闭环，例如一个 API 流程、一个页面状态、一个 scene/editor 路径
+- **milestone**：多个连续任务组成一个完整模块后再做模块验收；这是 qa-verifier 的默认主战场
+- **release**：模块收口、合并、部署前的完整回归
+- code-reviewer 只用于高风险、跨模块、公开接口、安全/数据一致性等变更，不是每个微任务必跑
+- qa-verifier 只用于 milestone/release，或用户明确要求的关键用户路径 / 核心运行时闭环
+- 细微 UI 不雅观、本质上属于设计约束和验收标准问题，要前置写进 spec.md 和 `doneWhen`，不要只靠末端 QA 反复兜底
+
 ## 工具使用指南
 
 | 场景 | 工具 |
 |------|------|
 | 查询库/框架文档 | Context7 MCP（resolve-library-id → query-docs） |
-| Web UI 测试 | Playwright MCP（browser_navigate → browser_snapshot → browser_console_messages） |
+| Web UI / 编辑器闭环验证 | Playwright MCP（browser_navigate → browser_snapshot → browser_console_messages） |
 | 通用搜索 | WebSearch |
-| 代码评审 | 启动 code-reviewer agent |
-| 测试验证 | 启动 qa-verifier agent |
+| 高风险代码评审 | 启动 code-reviewer agent |
+| 模块/发布验证 | 启动 qa-verifier agent |
 
 ## 核心工作流
 
 ```
 /init-project → 第一性原理访谈 → 架构共识 → 生成 spec.md + task.json + progress.json
-/work         → 持续自主开发循环（Plan→Implement→Review→Build→Test→Commit→Next）
+/work         → 持续自主开发循环（Plan→Implement→Review?→Build→Validate→Commit→Next）
 /stopwork     → 优雅停止（以 task 为单位安全停止，保存进度）
 /change       → 中途需求变更（同步更新 spec.md + task.json + progress.json）
 /review       → GAN 式代码评审（外部评审者模式）
