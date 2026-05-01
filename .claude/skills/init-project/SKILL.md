@@ -120,18 +120,19 @@ user-invocable: true
 
 ## Phase 6.5：经验提炼
 
-执行 /learn 逻辑，将本次 init 对话中的隐性知识提炼到 spec.md 的「经验与约束」章节：
+执行 /learn 逻辑，将本次 init 对话中的隐性知识提炼到项目根目录 `experience.md`（与 CLAUDE.md 同级）：
 - 用户表达的编码风格、UI/UX 细节、明确拒绝的方案
 - 技术调研中发现的重要注意事项（版本兼容、配置要求）
 - 用户提到但未写入其他章节的隐含约束
 
-经验内容直接写入 spec.md，由 Phase 7 统一提交（不独立 commit）。
+经验内容只写入 experience.md（不写 spec.md），由 Phase 7 统一提交（不独立 commit）。
+experience.md 通过 CLAUDE.md 的 `@experience.md` 在新 session 启动时自动挂载，session 内 skill / agent 永不需要 Read 它。
 
 ## Phase 7：提交
 
 确认后：
 1. 如果还没有 git 仓库，执行 `git init`
-2. `git add spec.md task.json progress.json`
+2. `git add spec.md task.json progress.json experience.md`（experience.md 由 /learn 创建；如不存在则只 add 三件套）
 3. `git commit -m "feat: initialize project specification and task list"`
 
 提示用户可以运行 `/work` 开始自主开发。

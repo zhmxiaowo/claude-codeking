@@ -106,15 +106,18 @@ user-invocable: true
 
 ## Step 4.5: 经验提炼
 
-执行 /learn 逻辑，将本次变更讨论中的新发现提炼到 spec.md 的「经验与约束」章节。
-经验内容直接写入 spec.md，由 Step 5 统一提交（不独立 commit）。
+执行 /learn 逻辑，将本次变更讨论中的新发现提炼到项目根目录 `experience.md`（与 CLAUDE.md 同级）。
+经验内容只写入 experience.md（不写 spec.md），由 Step 5 统一提交（不独立 commit）。
+experience.md 通过 CLAUDE.md `@experience.md` 在新 session 启动时自动挂载。
 
 ## Step 5: 提交
 
 ```bash
-git add spec.md task.json progress.json
+git add spec.md task.json progress.json experience.md
 git commit -m "change: [变更描述简述]"
 ```
+
+> 提示用户：spec.md 已修改，建议下次开 session 前 `/clear` 一次（让新 spec.md 通过 @import 重新挂载到 system prompt）。
 
 ## Step 6: 报告
 

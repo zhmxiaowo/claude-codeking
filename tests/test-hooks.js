@@ -233,7 +233,7 @@ describe('work-continuation.js', () => {
     fs.rmSync(path.join(claudeDir, '.work-stop'));
   });
 
-  it('有未完成任务且无停止信号时输出续命提醒', async () => {
+  it('有未完成任务且无停止信号时强制续作', async () => {
     fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
       currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2,
     }));
@@ -245,14 +245,17 @@ describe('work-continuation.js', () => {
       ],
     }));
     // 确保没有 stop 文件
-    const stopPath = path.join(tmpDir, '.claude', '.work-stop');
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const stopPath = path.join(claudeDir, '.work-stop');
+    const pausePath = path.join(claudeDir, '.work-pause');
     if (fs.existsSync(stopPath)) fs.rmSync(stopPath);
+    if (fs.existsSync(pausePath)) fs.rmSync(pausePath);
 
     const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.match(r.stderr, /2 个未完成任务/);
+    assert.strictEqual(r.code, 2);
+    assert.match(r.stderr, /work next/);
     assert.match(r.stderr, /#3/);
-    assert.match(r.stderr, /实现登录页/);
   });
 
   it('所有任务完成时静默退出', async () => {

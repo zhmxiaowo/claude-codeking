@@ -7,9 +7,7 @@
 1. 检查项目根目录是否存在 `progress.json`
    - **存在**：读取它，恢复上次进度，报告当前状态（已完成/总数/当前任务/阻塞项）
    - **不存在**：提示用户运行 `/init-project` 初始化项目
-2. 如果 `spec.md` 存在，读取 `projectType` 字段
-   - `web` → 加载 `.claude/rules/web.md`
-   - `game-engine` → 加载 `.claude/rules/game-engine.md`
+2. `spec.md` / `DESIGN.md` / `experience.md` / `.claude/rules/*.md` 都已通过本文件末尾的 `@import` 一次性加载到 system prompt，**禁止再次 Read**
 3. 检查 git 状态，报告未提交的变更
 
 ## 搜索优先原则
@@ -30,8 +28,9 @@
 
 ## 经验管理
 
-- spec.md 的「经验与约束」章节是项目的隐性知识库
-- /learn skill 负责提取经验，在以下节点自动调用：
+- 项目根目录 `experience.md`（与 CLAUDE.md 同级）是项目的隐性知识库
+- session 启动时通过 `@experience.md` 一次性挂载到 system prompt，所有 skill / agent 共享，**禁止 Read**
+- /learn skill 负责提取经验（追加到 experience.md，**不写 spec.md**），在以下节点自动调用：
   - /init-project 完成后（Phase 6.5）
   - /change 完成后（Step 4.5）
   - /work 每个任务 commit 后（Step 6.5）
@@ -78,5 +77,18 @@
 
 ## 项目类型特定规则
 
-项目类型特定规则在 `.claude/rules/` 目录下，根据 spec.md 的 projectType 自动加载。
-不要在本文件中重复这些规则。
+以下规则在 session 启动时通过 @import 一次性加载到 system prompt，所有 skill / agent 共享，无需任何 Read。
+Claude 根据 spec.md 的 projectType 自动选用对应那一套，另一套作为闲置占位。
+
+@.claude/rules/web.md
+@.claude/rules/game-engine.md
+
+## 项目级文档（一次性挂载，禁止重复 Read）
+
+下列文件**只在 session 启动时通过 @import 加载到 system prompt 一次**。所有 skill / agent / 任务循环中**严禁再次 Read** 它们 —— 否则会导致同一份内容在 system prompt + messages 双重占用 token。
+
+文件不存在时 @import 会被忽略，不影响新项目初始化前的 session。
+
+@spec.md
+@DESIGN.md
+@experience.md

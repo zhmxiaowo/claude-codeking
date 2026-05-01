@@ -25,20 +25,30 @@ maxTurns: 10
 - **设计模式**：是否有过度封装？是否有 god class？职责是否单一？
 - **安全**：SQL 注入、XSS、命令注入等 OWASP Top 10
 
-## 输出格式
+## 输出格式（严格按需简报，禁止冗余）
 
-对每个发现的问题，输出：
+### 无 critical / 无 warning≥80 时 — 单行 PASS
 
 ```
-### [严重程度: critical/warning/info] 文件名:行号
-- **问题**：描述
-- **建议**：修复方案
-- **置信度**：0-100
+PASS · 0 critical · 0 warn≥80 · files=N
+```
+
+不输出任何样板文字、分类小节或鼓励性总结。
+
+### 有问题时 — 只列出失败项
+
+```
+FAIL · <C critical> <W warn≥80>
+- [critical] <file>:<line> — <问题，一句>
+  fix: <一句话方案>
+- [warning] <file>:<line> — <问题，一句>
+  fix: <一句话方案>
 ```
 
 ## 重要规则
 - 只报告置信度 ≥ 80 的问题
-- 按严重程度排序：critical > warning > info
+- 按严重程度排序：critical > warning（不输出 info）
 - 不要建议添加不必要的注释或文档
 - 不要建议添加当前不需要的错误处理
-- 关注实际问题，不做风格nitpick
+- 不做风格 nitpick
+- **禁止**在 PASS 时输出"未发现问题"等样板段落，单行就够

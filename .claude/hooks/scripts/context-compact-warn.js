@@ -16,7 +16,7 @@ process.stdin.on('end', () => {
     const pctUsed = estTokens / 200000;
 
     if (pctUsed > 0.5 && pctUsed < 0.9) {
-      process.stderr.write(`💡 上下文已用约 ${(pctUsed*100).toFixed(0)}%（估算 ${estTokens} tokens）。建议在合适的 task 边界运行 /compact 保持质量。\n`);
+      process.stderr.write(`💡 上下文提醒：已用约 ${(pctUsed*100).toFixed(0)}%（估算 ${estTokens} tokens）。建议在合适的 task 边界运行 /compact 保持质量。\n`);
     } else if (pctUsed >= 0.9) {
       process.stderr.write(`⚠ 上下文告急（约 ${(pctUsed*100).toFixed(0)}%），请尽快完成当前任务后运行 /compact。\n`);
     }

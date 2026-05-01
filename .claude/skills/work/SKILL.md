@@ -11,23 +11,50 @@ user-invocable: true
 
 **核心原则：task.json 是单一数据源，但不是每个 task 都值得一次重型外部评审或完整 QA。把最贵的验证留给真正跨边界、跨模块、用户可见或高成本的改动。**
 
-## Startup 启动检查
+## Startup 启动检查（仅 session 内首次执行）
 
-1. 读取 `progress.json` — 确认项目已初始化（currentPhase 不为空）
-2. 读取 `task.json` — 找到下一个 pending 任务（或使用 $ARGUMENTS 指定的任务 ID）
+### 已通过 CLAUDE.md @import 进入 system prompt 的文件（绝对禁止 Read）
+
+下列文件在 session 启动时**已经一次性挂载到 system prompt**，内容已经在你的上下文里。**任何 work 循环、agent 调用、step 执行都不得对它们调用 Read 工具**，否则会双倍占用 token：
+
+- `spec.md`
+- `DESIGN.md`
+- `experience.md`
+- `.claude/rules/web.md`
+- `.claude/rules/game-engine.md`
+- `CLAUDE.md`
+
+需要相关内容直接从已加载的上下文中引用，绝不重新 Read。
+
+### 首次/后续判断
+
+读取 `progress.json` 的 `currentPhase`：
+- ≠ "in_progress" → 视为首次启动，执行下面 1–6 步
+- = "in_progress" → 视为后续循环，**跳过启动检查**，直接进入「单任务循环」Step 1
+
+### 首次启动流程
+
+1. 读取 `progress.json` — 确认项目已初始化
+2. 用 **Grep** 在 `task.json` 中定位下一个 pending 任务（不要 Read 整个文件）：
+   ```
+   Grep '"status": "pending"' task.json -n
+   ```
+   按行号 `Read task.json offset=N limit=20` 读出该任务条目，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
    - 跳过 status 为 `cancelled` 的任务
-  - 同时读取当前任务的 `changeArea`、`doneWhen`、`verificationLevel`
-   - 如果旧任务缺少这些字段，先基于 `spec.md` 补出最小验收契约再继续
-3. 读取 `spec.md` — 理解完整项目上下文
-4. 根据 progress.json 的 projectType 读取对应规则文件：
-   - web → `.claude/rules/web.md`
-   - game-engine → `.claude/rules/game-engine.md`
-5. 检查 git 状态，确保工作区干净
-6. 检查 `.claude/.work-stop` 是否存在：
-   - 存在：读取并显示上次停止原因，删除该文件，继续工作
-7. 更新 progress.json 的 currentPhase 为 "in_progress"
+   - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel`，从已加载的 spec.md 上下文补出最小验收契约
+3. 检查 git 状态，确保工作区干净
+4. 检查 `.claude/.work-stop`：存在则读取原因后删除，继续工作
+5. 检查 `.claude/.work-pause`：存在则读取原因后删除（说明用户刚 /clear 后 /work 续作），继续工作
+6. 更新 progress.json 的 currentPhase = "in_progress"
 
 如果 progress.json 不存在，提示用户先运行 `/init-project`。
+
+### 后续循环规则（避免 cache 累积）
+
+- **禁止重读** 上面那张 @import 列表里的任何文件
+- **task.json 用 Grep 取最小段** —— 用 `Grep '"status": "pending"' task.json -n` 找下一个，再 `Read offset=N limit=20` 只读那一段，不要 Read 整个文件
+- **每个 task 循环只 Read 当前任务真正要修改的源文件**
+- **修改源代码时**：Edit 之后**不要 Read 验证**（Edit 工具已经返回 diff 与成功状态，自己心里有数即可）。仅在编译/测试报错指向具体文件行号时才再次定位读取。
 
 ## 单任务循环（对每个任务重复执行）
 
@@ -126,6 +153,20 @@ user-invocable: true
 - 为每个微任务都启动 qa-verifier
 - QA 失败后立刻全量重跑；先只修当前报告对应 slice，再重跑同层级验证
 
+#### Playwright 视觉验证（按"是否视觉相关"判断，不按 verificationLevel）
+
+视觉相关 task = 改动涉及 UI 渲染、页面状态、用户交互、布局/样式、动画、表单。
+此类任务**必须**启动 playwright，无论 verificationLevel 是什么：
+
+1. `browser_navigate` 打开目标页面
+2. `browser_snapshot` 抓 a11y tree 验证渲染
+3. `browser_console_messages` 检查零 error
+4. `browser_click` / `browser_type` 跑一遍 doneWhen 闭环
+
+非视觉相关 task（纯 API / 纯逻辑 / 配置 / 数据处理 / build 脚本）跳过 playwright，只跑单测和编译。
+
+> 注: playwright MCP schema 一旦在 session 内首次调用就驻留 ~24k tok。所以对于视觉相关 task 集中分布的项目，把它们尽量排在连续的 task 序列里执行更省 token。
+
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
 - `git commit -m "feat/fix/refactor: [任务标题] - task #[id]"`
@@ -139,17 +180,38 @@ user-invocable: true
 - `git commit -m "chore: update progress - task #[id] completed"`
 
 ### Step 6.5: Learn 经验提取
-- 执行 /learn 逻辑，提取本任务开发中的经验
-- 如有新内容写入 spec.md，在 Step 6 的进度 commit 中已包含或追加一次 commit：`git add spec.md && git commit -m "chore: update experience notes - task #[id]"`
+- 执行 /learn 逻辑，把本任务的经验追加到项目根目录 `experience.md`（**不要写 spec.md**）
+- **不要 Read experience.md 全文**（它已通过 @import 在 system prompt 里）；用 Edit 工具直接定位末尾或对应子栏目追加新条目
+- 如有新内容：`git add experience.md && git commit -m "chore: update experience notes - task #[id]"`
 - 如无新发现，不得输出任何文字，直接执行 Step 7 的第一个操作
 
-### Step 7: Continue 继续
-- 从 task.json 取下一个 pending 任务（尊重 dependencies 顺序，跳过 cancelled）
-- 如果所有任务完成：
-  - 更新 progress.json 的 currentPhase 为 "completed"
-  - 输出完成摘要
-  - 停止
-- 如果还有任务：**立即**回到 Step 1
+### Step 7: Continue 继续 + 模块边界检测
+
+#### 7.1 检查所有任务是否完成
+- 用 Grep 在 task.json 找下一个 pending：`Grep '"status": "pending"' task.json -n | head -1`
+- 无 pending → 更新 progress.json 的 currentPhase = "completed"，输出完成摘要，停止
+
+#### 7.2 模块边界检测（决定是否提示 /clear 续作）
+
+**仅当满足以下任一条件时**，认定刚完成的任务是「模块边界」：
+
+a. **刚完成任务的 `verificationLevel = milestone` 或 `release`**（显式信号）
+b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending 任务的 changeArea 属于不同大类（如 `ui` ↔ `api`、`frontend` ↔ `backend`、`runtime` ↔ `editor`、`core` ↔ `infra`），视为隐式模块边界
+
+满足模块边界 → 写入 `.claude/.work-pause` 文件，内容格式：
+```
+模块边界已到达 - task #[刚完成的id] ([verificationLevel])
+下一个 task: #[下一个pending id] - [title]
+请先 /clear 释放上下文，再 /work 继续。
+```
+然后输出**单行提示**（不要长篇大论）：
+```
+✅ 模块边界（task #N → task #M 跨域）。请 /clear 后 /work 继续。
+```
+**停止当前 session**（Stop hook 会识别 .work-pause 不强制继续）。
+
+#### 7.3 非模块边界
+- **立即**回到 Step 1，进入下一个 pending task。永不询问"是否继续"。
 
 ## 错误恢复
 
@@ -163,10 +225,14 @@ user-invocable: true
 
 ## 重要原则
 
-- **永不停止**：除非全部完成或全部阻塞，否则持续工作
-- **绝对禁止提前停止**：完成一个任务后，你必须立即开始下一个任务。不要询问用户"是否继续"，不要输出"接下来我将..."然后等待。直接开始下一个任务的 Step 1。
-- **每个 Step 7 必须直接跳转**：输出"→ 开始任务 #X"后立即执行 Step 1，不要在两个任务之间产生任何等待或确认。
-- **禁止总结性停止**：绝不输出"接下来我将做 X、Y、Z"之类的展望后停止。如果 context 即将耗尽，完成当前 Step 后 commit（用 wip: 前缀），然后输出"⚡ 请运行 /compact 后重新 /work"。
+- **铁律：永不主动停止** —— 除非满足以下三种合法停止之一，否则必须持续工作：
+  1. **全部任务完成**（无 pending）
+  2. **全部任务阻塞**（错误恢复阶段无可执行 task）
+  3. **模块边界**（Step 7.2 检测到 milestone/release 或 changeArea 跨域，已写 `.claude/.work-pause`）
+- **绝对禁止「猜测式」停止**：不允许因为"context 看起来要满了""觉得做了很多了""差不多了"等主观判断而停止。是否到达模块边界由 Step 7.2 的客观规则判定。
+- **绝对禁止提前停止**：在非模块边界处，完成一个任务后必须立即开始下一个任务。不要询问用户"是否继续"，不要输出"接下来我将..."然后等待。直接开始下一个任务的 Step 1。
+- **每个 Step 7.3 必须直接跳转**：输出"→ 开始任务 #X"后立即执行 Step 1，不要在两个任务之间产生任何等待或确认。
+- **禁止总结性停止**：绝不输出"接下来我将做 X、Y、Z"之类的展望后停止。
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
 - **编译门禁**：代码必须能编译通过才能提交
