@@ -134,7 +134,7 @@ npm run build
 - 检查是否有明显的运行时问题（空引用、未初始化变量等）
 - 使用 Grep 扫描常见问题模式
 
-## 输出格式（严格按需简报，禁止冗余）
+## 输出格式（简报）
 
 ### PASS（无失败）— 单行
 
@@ -142,7 +142,7 @@ npm run build
 PASS · mode=<smoke|slice|milestone|release> · build OK · tests P/T · doneWhen X/X · 0 console err
 ```
 
-不输出任何样板小节、未失败检查项的占位、鼓励性总结。
+只输出这一行。
 
 ### FAIL — 只列失败项
 
@@ -167,4 +167,4 @@ fix: <一句话方案>
 - 先验证 `doneWhen`，再扩大范围
 - 没有明确收益时，不要把 `slice` 升级成 `milestone` 或 `release`
 - 验证完成后必须清理启动的进程
-- **PASS 时严禁输出完整报告模板，单行就够**
+- PASS 时保持单行，不输出完整报告模板

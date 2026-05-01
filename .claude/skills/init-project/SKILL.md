@@ -126,7 +126,6 @@ user-invocable: true
 - 用户提到但未写入其他章节的隐含约束
 
 经验内容只写入 experience.md（不写 spec.md），由 Phase 7 统一提交（不独立 commit）。
-experience.md 通过 CLAUDE.md 的 `@experience.md` 在新 session 启动时自动挂载，session 内 skill / agent 永不需要 Read 它。
 
 ## Phase 7：提交
 

@@ -2,13 +2,14 @@
 
 ## Session 启动协议
 
-每次对话开始时执行：
+每次对话开始时：
 
 1. 检查项目根目录是否存在 `progress.json`
-   - **存在**：读取它，恢复上次进度，报告当前状态（已完成/总数/当前任务/阻塞项）
-   - **不存在**：提示用户运行 `/init-project` 初始化项目
-2. `spec.md` / `DESIGN.md` / `experience.md` / `.claude/rules/*.md` 都已通过本文件末尾的 `@import` 一次性加载到 system prompt，**禁止再次 Read**
-3. 检查 git 状态，报告未提交的变更
+   - 存在：读取它，恢复上次进度，报告已完成/总数/当前任务/阻塞项
+   - 不存在：提示用户运行 `/init-project` 初始化项目
+2. 项目上下文已由文末 @import 注入：`spec.md`、`DESIGN.md`、`experience.md`、`.claude/rules/*.md`
+   - 需要这些内容时直接使用当前上下文；只有文件可能变化或内容缺失时再读取
+3. 检查 git 状态，报告未提交变更
 
 ## 搜索优先原则
 
@@ -28,15 +29,12 @@
 
 ## 经验管理
 
-- 项目根目录 `experience.md`（与 CLAUDE.md 同级）是项目的隐性知识库
-- session 启动时通过 `@experience.md` 一次性挂载到 system prompt，所有 skill / agent 共享，**禁止 Read**
-- /learn skill 负责提取经验（追加到 experience.md，**不写 spec.md**），在以下节点自动调用：
-  - /init-project 完成后（Phase 6.5）
-  - /change 完成后（Step 4.5）
-  - /work 每个任务 commit 后（Step 6.5）
-- 用户也可随时手动运行 /learn
+- `experience.md` 是项目隐性知识库，与 `spec.md` 分离维护
+- `/learn` 只追加对未来 session 有价值的新经验，不把经验写入 `spec.md`
+- 自动调用节点：`/init-project` Phase 6.5、`/change` Step 4.5、`/work` Step 6.5
+- 用户也可随时手动运行 `/learn`
 - 每条经验格式：`- [日期 task#id] 内容描述`
-- 在较长对话即将结束时，自检是否有未记录的用户偏好或技术发现
+- 长对话结束前，自检是否有未记录的用户偏好或技术发现
 
 ## 进度跟踪
 
@@ -77,15 +75,14 @@
 
 ## 项目类型特定规则
 
-以下规则在 session 启动时通过 @import 一次性加载到 system prompt，所有 skill / agent 共享，无需任何 Read。
-Claude 根据 spec.md 的 projectType 自动选用对应那一套，另一套作为闲置占位。
+以下规则和项目文档在 session 启动时作为基础上下文导入。按 `spec.md` 的 `projectType` 使用对应规则；另一个规则文件仅作备用。
 
 @.claude/rules/web.md
 @.claude/rules/game-engine.md
 
-## 项目级文档（一次性挂载，禁止重复 Read）
+## 项目级文档
 
-下列文件**只在 session 启动时通过 @import 加载到 system prompt 一次**。所有 skill / agent / 任务循环中**严禁再次 Read** 它们 —— 否则会导致同一份内容在 system prompt + messages 双重占用 token。
+这些文件若存在，会在 session 启动时导入。运行流程时优先使用已导入上下文；仅在文件刚被修改、内容缺失或需要精确定位时读取。
 
 文件不存在时 @import 会被忽略，不影响新项目初始化前的 session。
 

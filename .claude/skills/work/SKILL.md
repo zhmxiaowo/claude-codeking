@@ -13,49 +13,34 @@ user-invocable: true
 
 ## Startup 启动检查（仅 session 内首次执行）
 
-### 已通过 CLAUDE.md @import 进入 system prompt 的文件（绝对禁止 Read）
+### 上下文来源
 
-下列文件在 session 启动时**已经一次性挂载到 system prompt**，内容已经在你的上下文里。**任何 work 循环、agent 调用、step 执行都不得对它们调用 Read 工具**，否则会双倍占用 token：
-
-- `spec.md`
-- `DESIGN.md`
-- `experience.md`
-- `.claude/rules/web.md`
-- `.claude/rules/game-engine.md`
-- `CLAUDE.md`
-
-需要相关内容直接从已加载的上下文中引用，绝不重新 Read。
+`CLAUDE.md`、`spec.md`、`DESIGN.md`、`experience.md` 和 `.claude/rules/*.md` 已作为 session 基础上下文导入。流程中优先使用当前上下文；只有文件刚被修改、内容缺失或需要精确定位时再读取。
 
 ### 首次/后续判断
 
 读取 `progress.json` 的 `currentPhase`：
-- ≠ "in_progress" → 视为首次启动，执行下面 1–6 步
-- = "in_progress" → 视为后续循环，**跳过启动检查**，直接进入「单任务循环」Step 1
+- ≠ `in_progress`：执行首次启动流程
+- = `in_progress`：跳过启动检查，进入「单任务循环」Step 1
 
 ### 首次启动流程
 
-1. 读取 `progress.json` — 确认项目已初始化
-2. 用 **Grep** 在 `task.json` 中定位下一个 pending 任务（不要 Read 整个文件）：
-   ```
-   Grep '"status": "pending"' task.json -n
-   ```
-   按行号 `Read task.json offset=N limit=20` 读出该任务条目，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
+1. 读取 `progress.json`，确认项目已初始化
+2. 从 `task.json` 定位下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
    - 跳过 status 为 `cancelled` 的任务
-   - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel`，从已加载的 spec.md 上下文补出最小验收契约
-3. 检查 git 状态，确保工作区干净
-4. 检查 `.claude/.work-stop`：存在则读取原因后删除，继续工作
-5. 检查 `.claude/.work-pause`：存在则读取原因后删除（说明用户刚 /clear 后 /work 续作），继续工作
-6. 更新 progress.json 的 currentPhase = "in_progress"
+   - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
+3. 检查 git 状态，确认当前工作区风险
+4. 若存在 `.claude/.work-stop`，读取原因后删除并继续
+5. 若存在 `.claude/.work-pause`，读取原因后删除并继续
+6. 更新 `progress.json` 的 `currentPhase` = `in_progress`
 
-如果 progress.json 不存在，提示用户先运行 `/init-project`。
+如果 `progress.json` 不存在，提示用户先运行 `/init-project`。
 
-### 后续循环规则（避免 cache 累积）
+### 循环读取边界
 
-- **禁止重读** 上面那张 @import 列表里的任何文件
-- **task.json 用 Grep 取最小段** —— 用 `Grep '"status": "pending"' task.json -n` 找下一个，再 `Read offset=N limit=20` 只读那一段，不要 Read 整个文件
-- **每个 task 循环只 Read 当前任务真正要修改的源文件**
-- **修改源代码时**：Edit 之后**不要 Read 验证**（Edit 工具已经返回 diff 与成功状态，自己心里有数即可）。仅在编译/测试报错指向具体文件行号时才再次定位读取。
-
+- `task.json` 是任务状态源；每轮只取当前任务需要的条目
+- 每个 task 只读取要修改或验证的相关源文件
+- Edit 成功后以工具返回为准；仅在编译/测试报错指向具体位置时再读取定位
 ## 单任务循环（对每个任务重复执行）
 
 ### Step 1: Plan 规划
@@ -165,7 +150,7 @@ user-invocable: true
 
 非视觉相关 task（纯 API / 纯逻辑 / 配置 / 数据处理 / build 脚本）跳过 playwright，只跑单测和编译。
 
-> 注: playwright MCP schema 一旦在 session 内首次调用就驻留 ~24k tok。所以对于视觉相关 task 集中分布的项目，把它们尽量排在连续的 task 序列里执行更省 token。
+> 注：视觉相关任务尽量连续执行，便于复用同一轮浏览器验证上下文。
 
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
@@ -180,11 +165,10 @@ user-invocable: true
 - `git commit -m "chore: update progress - task #[id] completed"`
 
 ### Step 6.5: Learn 经验提取
-- 执行 /learn 逻辑，把本任务的经验追加到项目根目录 `experience.md`（**不要写 spec.md**）
-- **不要 Read experience.md 全文**（它已通过 @import 在 system prompt 里）；用 Edit 工具直接定位末尾或对应子栏目追加新条目
+- 执行 /learn 逻辑，把本任务的新经验追加到项目根目录 `experience.md`，不写入 `spec.md`
+- 只记录对未来 session 有价值的偏好、技术发现或踩坑记录
 - 如有新内容：`git add experience.md && git commit -m "chore: update experience notes - task #[id]"`
-- 如无新发现，不得输出任何文字，直接执行 Step 7 的第一个操作
-
+- 如无新发现，直接进入 Step 7
 ### Step 7: Continue 继续 + 模块边界检测
 
 #### 7.1 检查所有任务是否完成
@@ -225,18 +209,12 @@ b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending
 
 ## 重要原则
 
-- **铁律：永不主动停止** —— 除非满足以下三种合法停止之一，否则必须持续工作：
-  1. **全部任务完成**（无 pending）
-  2. **全部任务阻塞**（错误恢复阶段无可执行 task）
-  3. **模块边界**（Step 7.2 检测到 milestone/release 或 changeArea 跨域，已写 `.claude/.work-pause`）
-- **绝对禁止「猜测式」停止**：不允许因为"context 看起来要满了""觉得做了很多了""差不多了"等主观判断而停止。是否到达模块边界由 Step 7.2 的客观规则判定。
-- **绝对禁止提前停止**：在非模块边界处，完成一个任务后必须立即开始下一个任务。不要询问用户"是否继续"，不要输出"接下来我将..."然后等待。直接开始下一个任务的 Step 1。
-- **每个 Step 7.3 必须直接跳转**：输出"→ 开始任务 #X"后立即执行 Step 1，不要在两个任务之间产生任何等待或确认。
-- **禁止总结性停止**：绝不输出"接下来我将做 X、Y、Z"之类的展望后停止。
+- **永不停止**：除非全部完成、全部阻塞或到达模块边界，否则持续执行下一个任务
+- **绝对禁止提前停止**：非模块边界处，完成一个任务后直接进入下一个任务 Step 1，不询问是否继续
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
 - **编译门禁**：代码必须能编译通过才能提交
-- **外部评审与 QA 是边界门禁**：公开接口、跨模块、runtime / infra 边界改动用 code-reviewer，模块/发布验收用 qa-verifier，不把它们变成每个微任务的固定税
-- **审美与交互品味问题要前置**：把可观察的体验要求写进 `doneWhen` 和 spec，再实现；不要指望末端 QA 单独根治
+- **外部评审与 QA 是边界门禁**：公开接口、跨模块、runtime / infra 边界改动用 code-reviewer，模块/发布验收用 qa-verifier
+- **审美与交互品味问题要前置**：把可观察体验要求写进 `doneWhen` 和 spec，再实现
 - **增量提交**：每个任务完成立即提交，不累积
 - **进度可恢复**：progress.json 保证 session 断开后可恢复
