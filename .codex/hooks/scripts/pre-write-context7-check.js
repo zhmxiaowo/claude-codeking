@@ -26,7 +26,7 @@ process.stdin.on('end', () => {
     }
     if (!pkgs.size) return process.exit(0);
 
-    const cachePath = path.join(process.cwd(), '.claude', 'context7-cache.json');
+    const cachePath = path.join(process.cwd(), '.codex', 'context7-cache.json');
     let cache = {};
     if (fs.existsSync(cachePath)) {
       try { cache = JSON.parse(fs.readFileSync(cachePath,'utf8')); } catch {}

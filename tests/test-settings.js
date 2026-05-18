@@ -10,8 +10,10 @@ const path = require('node:path');
 
 const ROOT = path.join(__dirname, '..');
 const SETTINGS_PATH = path.join(ROOT, '.claude', 'settings.json');
+const CODEX_HOOKS_PATH = path.join(ROOT, '.codex', 'hooks.json');
 const MCP_PATH = path.join(ROOT, '.mcp.json');
 const HOOKS_DIR = path.join(ROOT, '.claude', 'hooks', 'scripts');
+const CODEX_HOOKS_DIR = path.join(ROOT, '.codex', 'hooks', 'scripts');
 
 describe('settings.json 验证', () => {
   it('文件应存在', () => {
@@ -196,6 +198,50 @@ describe('.mcp.json 验证', () => {
     it('URL 应包含搜索工具', () => {
       assert.ok(mcp.mcpServers.exa.url.includes('web_search_exa'));
     });
+  });
+});
+
+describe('Codex hooks.json 验证', () => {
+  it('文件应存在', () => {
+    assert.ok(fs.existsSync(CODEX_HOOKS_PATH));
+  });
+
+  it('应是有效的 JSON', () => {
+    const content = fs.readFileSync(CODEX_HOOKS_PATH, 'utf8');
+    assert.doesNotThrow(() => JSON.parse(content));
+  });
+
+  const hooks = JSON.parse(fs.readFileSync(CODEX_HOOKS_PATH, 'utf8'));
+
+  it('不应包含本机绝对路径', () => {
+    const content = JSON.stringify(hooks);
+    assert.ok(!/[A-Za-z]:\\/.test(content), 'hooks.json 不应包含 Windows 绝对路径');
+    assert.ok(!content.includes('H:\\'), 'hooks.json 不应绑定当前仓库路径');
+  });
+
+  it('应引用 .codex/hooks/scripts 下的脚本', () => {
+    const content = JSON.stringify(hooks);
+    for (const script of [
+      'block-dangerous-cmd.js',
+      'context-compact-warn.js',
+      'pre-write-context7-check.js',
+      'session-start-inject.js',
+      'track-context7-query.js',
+      'work-continuation.js',
+    ]) {
+      assert.ok(content.includes(`.codex/hooks/scripts/${script}`), `缺少 ${script}`);
+    }
+  });
+
+  it('hooks.json 中引用的所有脚本都应存在', () => {
+    const content = JSON.stringify(hooks);
+    const jsFiles = content.match(/[\w-]+\.js/g) || [];
+    for (const jsFile of jsFiles) {
+      assert.ok(
+        fs.existsSync(path.join(CODEX_HOOKS_DIR, jsFile)),
+        `hooks.json 引用的 ${jsFile} 不存在`
+      );
+    }
   });
 });
 

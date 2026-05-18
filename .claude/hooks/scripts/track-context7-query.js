@@ -13,7 +13,7 @@ process.stdin.on('end', () => {
 
     // 从 tool_input 中提取 libraryName / library-id
     const ti = data.tool_input || {};
-    const pkg = ti.libraryName || ti.library_name || ti.libraryID || ti.library_id || ti.package || '';
+    const pkg = ti.libraryName || ti.library_name || ti.libraryId || ti.libraryID || ti.library_id || ti.package || '';
     if (!pkg) return process.exit(0);
     const key = pkg.toString().replace(/^\//, '').split('/').slice(0,2).join('/');
 

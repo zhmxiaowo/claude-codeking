@@ -22,7 +22,7 @@ user-invocable: true
 **如果有 in_progress 的任务**：
 - 检查 git diff，评估当前变更是否可用（能编译、不会破坏现有功能）
 - **可用**：git add 并 commit 当前变更，标注 `wip: [任务标题] - task #[id] (stopped)`
-- **不可用**：`git checkout -- .` 回滚未完成的变更，将任务 status 改回 `pending`
+- **不可用**：不回滚、不丢弃 WIP；保留 task 的 `status = "in_progress"`，在停止信号和 `progress.lastSession.notes` 中记录未完成原因
 
 **如果没有 in_progress 的任务**：直接进入 Step 3。
 
@@ -39,7 +39,8 @@ user-invocable: true
 ### Step 4: 更新进度
 
 更新 `progress.json`：
-- currentTask = null
+- 如果存在进行中任务，保留 `currentTask = { id, title }`，便于 `/work` 自动恢复
+- 如果没有进行中任务，`currentTask = null`
 - lastSession.notes = "用户停止: [原因]"
 - lastSession.date = 当前 ISO 时间
 
@@ -56,7 +57,7 @@ git commit -m "chore: stop work - [原因简述]"
 ```
 已安全停止。
 - 已完成：X / Y 个任务
-- 当前任务：#[id] [处理方式：已提交 WIP / 已回滚]
+- 当前任务：#[id] [处理方式：已提交 WIP / 保留未完成变更]
 - 剩余：Z 个 pending 任务
 
 后续操作：

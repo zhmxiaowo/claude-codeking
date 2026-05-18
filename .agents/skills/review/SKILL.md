@@ -18,9 +18,9 @@ user-invocable: true
 
 ## 执行评审
 
-启动 code-reviewer agent，传入评审范围。
+在当前 Codex 会话内执行本地评审流程，逐文件检查评审范围。仅当当前环境支持子 agent 且用户已明确允许委派时，才启动独立评审 agent。
 
-Agent 将按以下维度检查：
+按以下维度检查：
 
 ### 1. Bug 检测
 - 空指针/未定义引用

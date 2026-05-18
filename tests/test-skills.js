@@ -8,7 +8,9 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const SKILLS_DIR = path.join(__dirname, '..', '.claude', 'skills');
+const ROOT = path.join(__dirname, '..');
+const SKILLS_DIR = path.join(ROOT, '.claude', 'skills');
+const CODEX_SKILLS_DIR = path.join(ROOT, '.agents', 'skills');
 
 // 解析 YAML frontmatter（简易版，不引入第三方库，兼容 \r\n）
 function parseFrontmatter(content) {
@@ -148,5 +150,76 @@ describe('Skill 交叉一致性验证', () => {
     const stopContent = fs.readFileSync(path.join(SKILLS_DIR, 'stopwork', 'SKILL.md'), 'utf8');
     assert.ok(stopContent.includes('/change'), '/stopwork 应提示 /change');
     assert.ok(stopContent.includes('/work'), '/stopwork 应提示 /work');
+  });
+});
+
+describe('Codex Skill 文件结构验证', () => {
+  it('.agents/skills 目录应存在', () => {
+    assert.ok(fs.existsSync(CODEX_SKILLS_DIR));
+  });
+
+  for (const skill of EXPECTED_SKILLS) {
+    describe(`/skill: ${skill.name} (Codex)`, () => {
+      const skillDir = path.join(CODEX_SKILLS_DIR, skill.name);
+      const skillFile = path.join(skillDir, 'SKILL.md');
+
+      it('skill 目录应存在', () => {
+        assert.ok(fs.existsSync(skillDir), `${skillDir} 不存在`);
+      });
+
+      it('SKILL.md 应存在', () => {
+        assert.ok(fs.existsSync(skillFile), `${skillFile} 不存在`);
+      });
+
+      it('应有有效的 YAML frontmatter', () => {
+        const content = fs.readFileSync(skillFile, 'utf8');
+        const fm = parseFrontmatter(content);
+        assert.ok(fm, 'YAML frontmatter 解析失败');
+        for (const field of skill.requiredFields) {
+          assert.ok(fm[field] !== undefined, `缺少 frontmatter 字段: ${field}`);
+        }
+        assert.strictEqual(fm['user-invocable'], 'true');
+      });
+
+      for (const section of skill.requiredSections) {
+        it(`内容应包含 "${section}" 章节`, () => {
+          const content = fs.readFileSync(skillFile, 'utf8');
+          assert.ok(content.includes(section), `缺少章节: ${section}`);
+        });
+      }
+    });
+  }
+});
+
+describe('Claude/Codex Skill 契约一致性', () => {
+  it('两套 skills 应包含相同命令', () => {
+    const claude = fs.readdirSync(SKILLS_DIR).filter(name => fs.statSync(path.join(SKILLS_DIR, name)).isDirectory()).sort();
+    const codex = fs.readdirSync(CODEX_SKILLS_DIR).filter(name => fs.statSync(path.join(CODEX_SKILLS_DIR, name)).isDirectory()).sort();
+    assert.deepStrictEqual(codex, claude);
+  });
+
+  it('Codex /work 不应引用不存在的 .Codex 目录或强依赖 Claude agents', () => {
+    const work = fs.readFileSync(path.join(CODEX_SKILLS_DIR, 'work', 'SKILL.md'), 'utf8');
+    assert.ok(!work.includes('.Codex'), 'Codex /work 不应引用 .Codex');
+    assert.ok(work.includes('.agents/rules'), 'Codex /work 应引用 .agents/rules');
+    assert.ok(!work.includes('启动 code-reviewer agent'), 'Codex /work 不应强制启动 Claude code-reviewer agent');
+    assert.ok(!work.includes('启动 qa-verifier agent'), 'Codex /work 不应强制启动 Claude qa-verifier agent');
+  });
+
+  it('/work 应记录和恢复 in_progress/currentTask 状态', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const work = fs.readFileSync(path.join(dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(work.includes('status = "in_progress"'), `${dir} /work 应设置 in_progress`);
+      assert.ok(work.includes('currentTask = { id, title }'), `${dir} /work 应设置 currentTask`);
+      assert.ok(work.includes('从 "in_progress" 改为 "completed"'), `${dir} /work 应完成 in_progress 任务`);
+    }
+  });
+
+  it('/stopwork 不应要求破坏性回滚未完成变更', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const stop = fs.readFileSync(path.join(dir, 'stopwork', 'SKILL.md'), 'utf8');
+      assert.ok(!stop.includes('git checkout -- .'), `${dir} /stopwork 不应自动回滚`);
+      assert.ok(stop.includes('不回滚、不丢弃 WIP'), `${dir} /stopwork 应保留 WIP`);
+    }
   });
 });

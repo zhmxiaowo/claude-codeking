@@ -135,7 +135,7 @@
 **指导性原则：**
 > 找到"最小可能的高信号 token 集合"，最大化期望结果的概率。
 
-> **本项目的映射**：`progress.json` 和 `task.json` 就是我们的"结构化笔记"，每次 session 启动时读取恢复进度。`CLAUDE.md` 是精心设计的系统提示词。code-reviewer agent 使用 Sonnet 模型实现"多代理架构"，保持主上下文干净。
+> **本项目的映射**：`progress.json` 和 `task.json` 就是我们的"结构化笔记"，每次 session 启动时读取恢复进度。Claude Code 使用 `CLAUDE.md` 作为系统提示词，Codex 使用 `AGENTS.md` 作为系统提示词。Claude Code 侧提供 code-reviewer / qa-verifier agents；Codex 侧使用同等评审与验证流程，环境支持且用户允许时再委派子 agent。
 
 ---
 
@@ -610,13 +610,15 @@ npx @anthropic-ai/mcpb pack   # 打包成 .mcpb
 
 ```
 claude-codeking/                    # 项目根目录
-├── CLAUDE.md                       # 🧠 核心指令文件（系统提示词）
+├── CLAUDE.md                       # 🧠 Claude Code 核心指令文件
+├── AGENTS.md                       # 🧠 Codex 核心指令文件
 ├── context.md                      # 项目背景和需求来源
 ├── README.md                       # 📖 你正在看的这个文件
 │
 ├── templates/                      # 📐 文件模板
 │   ├── spec.md                     #    项目规格说明模板
-│   └── task.json                   #    任务列表模板
+│   ├── task.json                   #    任务列表模板
+│   └── progress.json               #    进度追踪模板
 │
 ├── .claude/                        # ⚙️ Claude Code 配置目录
 │   ├── rules/                      #    项目类型特定规则
@@ -630,6 +632,15 @@ claude-codeking/                    # 项目根目录
 │       ├── code-reviewer/          #    代码评审 Agent（Sonnet）
 │       └── qa-verifier/            #    QA 验证 Agent（Sonnet）
 │
+├── .agents/                        # ⚙️ Codex Skill / Rules 目录
+│   ├── rules/                      #    Codex 项目类型规则（与 .claude/rules 同步）
+│   └── skills/                     #    Codex 自定义 Skill（/init-project、/work、/change...）
+│
+├── .codex/                         # ⚙️ Codex hooks / MCP 配置
+│   ├── config.toml                 #    Codex MCP 与环境配置
+│   ├── hooks.json                  #    Codex hook 注册
+│   └── hooks/scripts/              #    Codex hook 脚本
+│
 ├── spec.md                         # 🎯 [生成] 项目规格说明
 ├── task.json                       # 📋 [生成] 任务列表
 └── progress.json                   # 📊 [生成] 进度追踪
@@ -641,9 +652,9 @@ claude-codeking/                    # 项目根目录
 
 | 设计决策 | 理论来源 | 原因 |
 |---------|---------|------|
-| CLAUDE.md 作为统一入口 | 上下文工程 | 系统提示词必须极度清晰、结构化 |
-| rules/ 按项目类型分离 | 路由模式 | 不同输入导向专门化处理 |
-| agents/ 独立评审和测试 | 生成-评估分离 | 分离工作与评判更有效 |
+| CLAUDE.md / AGENTS.md 双入口 | 上下文工程 | Claude Code 和 Codex 各自读取原生入口 |
+| rules/ 按项目类型分离 | 路由模式 | 两端规则文件同步，按项目类型加载 |
+| agents/ 或本地评审流程 | 生成-评估分离 | Claude Code 可用专用 agents；Codex 保持本地流程兜底 |
 | progress.json 持久化 | 框架设计 | 跨 session 恢复，班次交接 |
 | templates/ 模板化 | 提示链模式 | 结构化输出，减少随机性 |
 | skills/ 斜杠命令 | 极简框架 | 一个命令触发完整工作流 |
@@ -862,10 +873,11 @@ UI：Builder 模式 + Fluent API
 
 ### 前提条件
 
-- 安装 [Claude Code CLI](https://code.claude.com)
+- 使用 Claude Code 时：安装 [Claude Code CLI](https://code.claude.com)
+- 使用 Codex 时：在支持 `AGENTS.md`、`.agents/skills`、`.codex` hooks 的 Codex 环境中打开项目
 - 配置 Context7 MCP 和 Playwright MCP
 
-### 三步启动
+### Claude Code 三步启动
 
 ```bash
 # 1. 克隆模板
@@ -874,6 +886,19 @@ cd my-project
 
 # 2. 在终端启动 Claude Code
 claude
+
+# 3. 初始化项目（交互式对话）
+/init-project 我的电商网站
+```
+
+### Codex 三步启动
+
+```bash
+# 1. 克隆模板
+git clone https://github.com/your-username/claude-codeking.git my-project
+cd my-project
+
+# 2. 在 Codex 中打开该项目目录
 
 # 3. 初始化项目（交互式对话）
 /init-project 我的电商网站
@@ -894,7 +919,7 @@ claude
 
 ### Session 恢复
 
-每次重新打开 Claude Code，系统会自动：
+每次重新打开 Claude Code 或 Codex，系统会自动：
 1. 读取 `progress.json` 恢复进度
 2. 报告当前状态（已完成/总数/当前任务/阻塞项）
 3. 加载对应的项目类型规则

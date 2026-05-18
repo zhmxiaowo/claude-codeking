@@ -7,7 +7,7 @@
 1. 检查项目根目录是否存在 `progress.json`
    - 存在：读取它，恢复上次进度，报告已完成/总数/当前任务/阻塞项
    - 不存在：提示用户运行 `/init-project` 初始化项目
-2. 项目上下文已由文末 @import 注入：`spec.md`、`DESIGN.md`、`experience.md`、`.Codex/rules/*.md`
+2. 项目上下文已由文末 @import 注入：`spec.md`、`DESIGN.md`、`experience.md`、`.agents/rules/*.md`
    - 需要这些内容时直接使用当前上下文；只有文件可能变化或内容缺失时再读取
 3. 检查 git 状态，报告未提交变更
 
@@ -60,8 +60,8 @@
 | 查询库/框架文档 | Context7 MCP（resolve-library-id → query-docs） |
 | Web UI / 编辑器闭环验证 | Playwright MCP（browser_navigate → browser_snapshot → browser_console_messages） |
 | 通用搜索 | WebSearch |
-| 高风险代码评审 | 启动 code-reviewer agent |
-| 模块/发布验证 | 启动 qa-verifier agent |
+| 高风险代码评审 | 执行独立评审流程（环境支持且用户允许时可委派 agent） |
+| 模块/发布验证 | 执行独立 QA 流程（环境支持且用户允许时可委派 agent） |
 
 ## 核心工作流
 
@@ -77,8 +77,8 @@
 
 以下规则和项目文档在 session 启动时作为基础上下文导入。按 `spec.md` 的 `projectType` 使用对应规则；另一个规则文件仅作备用。
 
-@.Codex/rules/web.md
-@.Codex/rules/game-engine.md
+@.agents/rules/web.md
+@.agents/rules/game-engine.md
 
 ## 项目级文档
 

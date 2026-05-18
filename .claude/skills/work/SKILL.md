@@ -19,20 +19,23 @@ user-invocable: true
 
 ### 首次/后续判断
 
-读取 `progress.json` 的 `currentPhase`：
-- ≠ `in_progress`：执行首次启动流程
-- = `in_progress`：跳过启动检查，进入「单任务循环」Step 1
+读取 `progress.json` 的 `currentPhase` 和 `currentTask`：
+- = `completed`：输出完成摘要并停止
+- 存在 `task.status = "in_progress"` 或 `progress.currentTask`：优先恢复该任务
+- 其他情况：执行首次启动流程，定位下一个可执行 pending 任务
 
 ### 首次启动流程
 
 1. 读取 `progress.json`，确认项目已初始化
-2. 从 `task.json` 定位下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
+2. 从 `task.json` 定位当前可恢复任务或下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
    - 跳过 status 为 `cancelled` 的任务
+   - 跳过 status 为 `blocked` 或依赖未完成的 pending 任务
    - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
 3. 检查 git 状态，确认当前工作区风险
 4. 若存在 `.claude/.work-stop`，读取原因后删除并继续
 5. 若存在 `.claude/.work-pause`，读取原因后删除并继续
-6. 更新 `progress.json` 的 `currentPhase` = `in_progress`
+6. 如果选中的是 pending 任务，更新该 task 的 `status = "in_progress"`
+7. 更新 `progress.json`：`currentPhase = "in_progress"`，`currentTask = { id, title }`
 
 如果 `progress.json` 不存在，提示用户先运行 `/init-project`。
 
@@ -155,7 +158,7 @@ user-invocable: true
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
 - `git commit -m "feat/fix/refactor: [任务标题] - task #[id]"`
-- 更新 task.json：将当前任务 status 改为 "completed"
+- 更新 task.json：将当前任务 status 从 "in_progress" 改为 "completed"
 - 更新 progress.json：
   - completedTasks += 1
   - currentTask = null

@@ -5,7 +5,7 @@ const path = require('path');
 
 const cwd = process.cwd();
 const progressPath = path.join(cwd, 'progress.json');
-const stopPath = path.join(cwd, '.claude', '.work-stop');
+const stopPath = path.join(cwd, '.codex', '.work-stop');
 
 const lines = [];
 
@@ -30,7 +30,7 @@ try {
     lines.push('');
     lines.push(`🛑 存在停止信号（上次 /stopwork）：`);
     lines.push(`  ${reason}`);
-    lines.push(`  运行 /resumework 清除后可继续 /work`);
+    lines.push(`  运行 /work 会清除停止信号并继续`);
   }
 } catch (e) {
   // fail-safe, don't block session start

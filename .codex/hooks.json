@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/block-dangerous-cmd.js'"
+            "command": "node .codex/hooks/scripts/block-dangerous-cmd.js"
           }
         ]
       },
@@ -15,7 +15,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/pre-write-context7-check.js'"
+            "command": "node .codex/hooks/scripts/pre-write-context7-check.js"
           }
         ]
       }
@@ -26,7 +26,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/track-context7-query.js'"
+            "command": "node .codex/hooks/scripts/track-context7-query.js"
           }
         ]
       }
@@ -36,7 +36,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/session-start-inject.js'"
+            "command": "node .codex/hooks/scripts/session-start-inject.js"
           }
         ]
       }
@@ -46,7 +46,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/context-compact-warn.js'"
+            "command": "node .codex/hooks/scripts/context-compact-warn.js"
           }
         ]
       },
@@ -54,7 +54,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node 'H:\\GitHub\\claude-codeking\\.codex\\hooks\\scripts/work-continuation.js'"
+            "command": "node .codex/hooks/scripts/work-continuation.js"
           }
         ]
       }

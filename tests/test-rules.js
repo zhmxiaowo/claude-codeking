@@ -8,7 +8,13 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const RULES_DIR = path.join(__dirname, '..', '.claude', 'rules');
+const ROOT = path.join(__dirname, '..');
+const RULES_DIR = path.join(ROOT, '.claude', 'rules');
+const AGENTS_RULES_DIR = path.join(ROOT, '.agents', 'rules');
+
+function normalizeNewlines(content) {
+  return content.replace(/\r\n/g, '\n');
+}
 
 describe('Rules 文件验证', () => {
   it('rules 目录应存在', () => {
@@ -156,7 +162,7 @@ describe('Rules 文件验证', () => {
 });
 
 describe('Rules 与 CLAUDE.md 一致性', () => {
-  const claudeMd = fs.readFileSync(path.join(__dirname, '..', 'CLAUDE.md'), 'utf8');
+  const claudeMd = fs.readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8');
 
   it('CLAUDE.md 应引用 web.md', () => {
     assert.ok(claudeMd.includes('web'));
@@ -173,5 +179,35 @@ describe('Rules 与 CLAUDE.md 一致性', () => {
     // CLAUDE.md 工具指南表中会引用 Playwright MCP 作为使用场景，这是合理的
     // 但不应包含 Playwright 的具体测试规范（如截图对比、零 error 策略等）
     assert.ok(!claudeMd.includes('截图对比'), 'CLAUDE.md 不应包含 web 特有的测试细节');
+  });
+});
+
+describe('Codex rules 与 AGENTS.md 一致性', () => {
+  const agentsMd = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8');
+
+  it('.agents/rules 目录应存在', () => {
+    assert.ok(fs.existsSync(AGENTS_RULES_DIR));
+  });
+
+  it('AGENTS.md 应引用 .agents/rules', () => {
+    assert.ok(agentsMd.includes('.agents/rules'));
+    assert.ok(!agentsMd.includes('.Codex/rules'));
+  });
+
+  it('AGENTS.md 的 @import 应指向真实存在的文件', () => {
+    const imports = [...agentsMd.matchAll(/^@(.+)$/gm)].map(m => m[1].trim());
+    assert.ok(imports.length > 0, 'AGENTS.md 应包含 @import');
+    for (const rel of imports) {
+      if (rel === 'spec.md' || rel === 'DESIGN.md' || rel === 'experience.md') continue;
+      assert.ok(fs.existsSync(path.join(ROOT, rel)), `${rel} 不存在`);
+    }
+  });
+
+  it('.agents/rules 应与 .claude/rules 同步', () => {
+    for (const file of ['web.md', 'game-engine.md']) {
+      const claude = normalizeNewlines(fs.readFileSync(path.join(RULES_DIR, file), 'utf8'));
+      const agents = normalizeNewlines(fs.readFileSync(path.join(AGENTS_RULES_DIR, file), 'utf8'));
+      assert.strictEqual(agents, claude, `${file} 不同步`);
+    }
   });
 });

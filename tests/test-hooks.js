@@ -3,7 +3,7 @@
  * Hook 脚本单元测试
  * 通过 child_process 模拟 stdin 输入，验证 stderr 输出和 exit code
  */
-const { describe, it, before, after, beforeEach } = require('node:test');
+const { describe, it, before, after, beforeEach, afterEach } = require('node:test');
 const assert = require('node:assert');
 const { execFile } = require('node:child_process');
 const fs = require('node:fs');
@@ -11,11 +11,12 @@ const path = require('node:path');
 const os = require('node:os');
 
 const HOOKS_DIR = path.join(__dirname, '..', '.claude', 'hooks', 'scripts');
+const CODEX_HOOKS_DIR = path.join(__dirname, '..', '.codex', 'hooks', 'scripts');
 
 // 辅助函数：运行 hook 脚本，传入 JSON stdin，返回 { code, stdout, stderr }
 function runHook(scriptName, stdinData, options = {}) {
   return new Promise((resolve) => {
-    const scriptPath = path.join(HOOKS_DIR, scriptName);
+    const scriptPath = path.join(options.hooksDir || HOOKS_DIR, scriptName);
     const child = execFile('node', [scriptPath], {
       cwd: options.cwd || process.cwd(),
       timeout: 5000,
@@ -99,6 +100,10 @@ describe('block-dangerous-cmd.js', () => {
     assert.strictEqual(r.code, 0);
   });
 });
+
+async function runCodexHook(scriptName, stdinData, options = {}) {
+  return runHook(scriptName, stdinData, { ...options, hooksDir: CODEX_HOOKS_DIR });
+}
 
 // ============================================================
 // 2. session-start-inject.js
@@ -258,6 +263,31 @@ describe('work-continuation.js', () => {
     assert.match(r.stderr, /#3/);
   });
 
+  it('有 in_progress 任务时优先续作当前任务', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
+      currentPhase: 'in_progress',
+      currentTask: { id: 4, title: '继续实现支付' },
+      totalTasks: 5,
+      completedTasks: 2,
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
+      tasks: [
+        { id: 3, status: 'pending', title: '实现登录页' },
+        { id: 4, status: 'in_progress', title: '继续实现支付' },
+      ],
+    }));
+    const claudeDir = path.join(tmpDir, '.claude');
+    fs.mkdirSync(claudeDir, { recursive: true });
+    const stopPath = path.join(claudeDir, '.work-stop');
+    const pausePath = path.join(claudeDir, '.work-pause');
+    if (fs.existsSync(stopPath)) fs.rmSync(stopPath);
+    if (fs.existsSync(pausePath)) fs.rmSync(pausePath);
+
+    const r = await runHook(script, undefined, { cwd: tmpDir });
+    assert.strictEqual(r.code, 2);
+    assert.match(r.stderr, /#4/);
+  });
+
   it('所有任务完成时静默退出', async () => {
     fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
       currentPhase: 'in_progress', totalTasks: 2, completedTasks: 2,
@@ -270,6 +300,86 @@ describe('work-continuation.js', () => {
     const r = await runHook(script, undefined, { cwd: tmpDir });
     assert.strictEqual(r.code, 0);
     assert.strictEqual(r.stderr, '');
+  });
+});
+
+// ============================================================
+// 3.5 next-task.js
+// ============================================================
+describe('next-task.js', () => {
+  const script = 'next-task.js';
+  let tmpDir;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-next-'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('initialized 状态选择第一个依赖满足的 pending 任务', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
+      currentPhase: 'initialized',
+      currentTask: null,
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
+      tasks: [
+        { id: 1, status: 'completed', title: '基础' },
+        { id: 2, status: 'pending', title: '可执行', dependencies: [1] },
+      ],
+    }));
+
+    const r = await runHook(script, undefined, { cwd: tmpDir });
+    assert.strictEqual(r.code, 0);
+    assert.strictEqual(JSON.parse(r.stdout).id, 2);
+  });
+
+  it('in_progress 状态优先恢复当前任务', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
+      currentPhase: 'in_progress',
+      currentTask: { id: 3, title: '恢复任务' },
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
+      tasks: [
+        { id: 2, status: 'pending', title: '不应选择' },
+        { id: 3, status: 'in_progress', title: '恢复任务' },
+      ],
+    }));
+
+    const r = await runHook(script, undefined, { cwd: tmpDir });
+    assert.strictEqual(JSON.parse(r.stdout).id, 3);
+  });
+
+  it('blocked 任务不可执行时返回 blocked 摘要', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
+      currentPhase: 'in_progress',
+      currentTask: null,
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
+      tasks: [
+        { id: 1, status: 'blocked', title: '阻塞依赖' },
+        { id: 2, status: 'pending', title: '等待依赖', dependencies: [1] },
+      ],
+    }));
+
+    const r = await runHook(script, undefined, { cwd: tmpDir });
+    const data = JSON.parse(r.stdout);
+    assert.deepStrictEqual(data.blocked, [{ id: 2, unmet: [1] }]);
+  });
+
+  it('completed phase 静默退出', async () => {
+    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
+      currentPhase: 'completed',
+      currentTask: null,
+    }));
+    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
+      tasks: [{ id: 1, status: 'pending', title: '不应输出' }],
+    }));
+
+    const r = await runHook(script, undefined, { cwd: tmpDir });
+    assert.strictEqual(r.code, 0);
+    assert.strictEqual(r.stdout, '');
   });
 });
 
@@ -406,7 +516,26 @@ describe('track-context7-query.js', () => {
     assert.ok(cache['react'].lastQuery);
   });
 
+  it('context7 调用支持 libraryId 字段', async () => {
+    const cachePath = path.join(tmpDir, '.claude', 'context7-cache.json');
+    if (fs.existsSync(cachePath)) fs.rmSync(cachePath);
+
+    const r = await runHook(script, {
+      tool_name: 'mcp__context7__query_docs',
+      tool_input: { libraryId: '/vercel/next.js' },
+    }, { cwd: tmpDir });
+    assert.strictEqual(r.code, 0);
+    const cache = JSON.parse(fs.readFileSync(cachePath, 'utf8'));
+    assert.ok(cache['vercel/next.js']);
+  });
+
   it('重复查询递增 queries 计数', async () => {
+    const cachePath = path.join(tmpDir, '.claude', 'context7-cache.json');
+    if (fs.existsSync(cachePath)) fs.rmSync(cachePath);
+    await runHook(script, {
+      tool_name: 'mcp__context7__resolve-library-id',
+      tool_input: { libraryName: 'react' },
+    }, { cwd: tmpDir });
     await runHook(script, {
       tool_name: 'mcp__context7__query-docs',
       tool_input: { libraryName: 'react' },
@@ -426,6 +555,57 @@ describe('track-context7-query.js', () => {
     }, { cwd: tmpDir });
     assert.strictEqual(r.code, 0);
     assert.ok(!fs.existsSync(cachePath));
+  });
+});
+
+// ============================================================
+// 7. Codex hook path parity
+// ============================================================
+describe('Codex hooks', () => {
+  it('脚本文本不应读写 .claude 运行态目录', () => {
+    const scripts = fs.readdirSync(CODEX_HOOKS_DIR).filter(file => file.endsWith('.js'));
+    for (const script of scripts) {
+      const content = fs.readFileSync(path.join(CODEX_HOOKS_DIR, script), 'utf8');
+      assert.ok(!content.includes("'.claude'"), `${script} 不应使用 .claude 目录`);
+      assert.ok(!content.includes('".claude"'), `${script} 不应使用 .claude 目录`);
+    }
+  });
+
+  it('pre-write-context7-check 使用 .codex 缓存', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-codex-ctx-'));
+    try {
+      fs.mkdirSync(path.join(tmpDir, '.codex'), { recursive: true });
+      fs.writeFileSync(path.join(tmpDir, '.codex', 'context7-cache.json'), JSON.stringify({
+        react: { lastQuery: new Date().toISOString(), queries: 1 },
+      }));
+
+      const r = await runCodexHook('pre-write-context7-check.js', {
+        tool_input: { content: "import React from 'react';" },
+      }, { cwd: tmpDir });
+      assert.strictEqual(r.code, 0);
+      assert.strictEqual(r.stderr, '');
+      assert.ok(!fs.existsSync(path.join(tmpDir, '.claude', 'context7-cache.json')));
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
+  });
+
+  it('track-context7-query 写入 .codex 缓存并支持 libraryId', async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-codex-track-'));
+    try {
+      const r = await runCodexHook('track-context7-query.js', {
+        tool_name: 'mcp__context7__query_docs',
+        tool_input: { libraryId: '/vercel/next.js' },
+      }, { cwd: tmpDir });
+      assert.strictEqual(r.code, 0);
+      const codexCache = path.join(tmpDir, '.codex', 'context7-cache.json');
+      assert.ok(fs.existsSync(codexCache));
+      assert.ok(!fs.existsSync(path.join(tmpDir, '.claude', 'context7-cache.json')));
+      const cache = JSON.parse(fs.readFileSync(codexCache, 'utf8'));
+      assert.ok(cache['vercel/next.js']);
+    } finally {
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });
 

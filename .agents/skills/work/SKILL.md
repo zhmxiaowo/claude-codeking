@@ -15,24 +15,27 @@ user-invocable: true
 
 ### 上下文来源
 
-`AGENTS.md`、`spec.md`、`DESIGN.md`、`experience.md` 和 `.Codex/rules/*.md` 已作为 session 基础上下文导入。流程中优先使用当前上下文；只有文件刚被修改、内容缺失或需要精确定位时再读取。
+`AGENTS.md`、`spec.md`、`DESIGN.md`、`experience.md` 和 `.agents/rules/*.md` 已作为 session 基础上下文导入。流程中优先使用当前上下文；只有文件刚被修改、内容缺失或需要精确定位时再读取。
 
 ### 首次/后续判断
 
-读取 `progress.json` 的 `currentPhase`：
-- ≠ `in_progress`：执行首次启动流程
-- = `in_progress`：跳过启动检查，进入「单任务循环」Step 1
+读取 `progress.json` 的 `currentPhase` 和 `currentTask`：
+- = `completed`：输出完成摘要并停止
+- 存在 `task.status = "in_progress"` 或 `progress.currentTask`：优先恢复该任务
+- 其他情况：执行首次启动流程，定位下一个可执行 pending 任务
 
 ### 首次启动流程
 
 1. 读取 `progress.json`，确认项目已初始化
-2. 从 `task.json` 定位下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
+2. 从 `task.json` 定位当前可恢复任务或下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
    - 跳过 status 为 `cancelled` 的任务
+   - 跳过 status 为 `blocked` 或依赖未完成的 pending 任务
    - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
 3. 检查 git 状态，确认当前工作区风险
-4. 若存在 `.Codex/.work-stop`，读取原因后删除并继续
-5. 若存在 `.Codex/.work-pause`，读取原因后删除并继续
-6. 更新 `progress.json` 的 `currentPhase` = `in_progress`
+4. 若存在 `.codex/.work-stop`，读取原因后删除并继续
+5. 若存在 `.codex/.work-pause`，读取原因后删除并继续
+6. 如果选中的是 pending 任务，更新该 task 的 `status = "in_progress"`
+7. 更新 `progress.json`：`currentPhase = "in_progress"`，`currentTask = { id, title }`
 
 如果 `progress.json` 不存在，提示用户先运行 `/init-project`。
 
@@ -52,7 +55,7 @@ user-invocable: true
 - 输出简要实施计划（< 10 行），必须包含：
   - 本任务的 `doneWhen`
   - 最便宜的第一验证动作
-  - 是否需要外部 `code-reviewer` / `qa-verifier` 以及原因
+  - 是否需要升级为独立评审 / 独立验证，以及原因
 
 ### Step 2: Implement 实现
 - 按 AGENTS.md 通用编码规范编写代码
@@ -68,7 +71,7 @@ user-invocable: true
 - 扫描失败路径、边界条件、异常输入、资源释放和回滚路径
 - 检查本任务是否引入了不必要的抽象或范围膨胀
 
-仅在满足任一条件时启动 code-reviewer agent：
+仅在满足任一条件时升级评审：
 - `changeArea = api | infra | runtime | cross-cutting`
 - 涉及并发、持久化、鉴权、安全、公开接口、数据迁移
 - 修改跨多个核心模块，或显著改变公共边界
@@ -76,7 +79,9 @@ user-invocable: true
 否则：
 - 记录“已完成作者自检”，不启动外部评审
 
-如启动 code-reviewer agent：
+如升级评审：
+- 先在当前 Codex 会话内按 `/review` 的四维清单检查当前任务变更
+- 仅当当前 Codex 环境支持子 agent 且用户已明确允许委派时，才启动独立评审 agent
 - 只传入当前任务变更文件
 - 修复所有 critical 级别问题
 - 修复置信度 ≥ 80 的 warning 级别问题
@@ -112,10 +117,10 @@ user-invocable: true
 
 按 `verificationLevel` 执行：
 
-- `local`：不启动 qa-verifier；只做最窄的可执行验证
+- `local`：不启动独立 QA；只做最窄的可执行验证
 - `slice`：围绕 `doneWhen` 运行当前 slice 的测试 / 场景 / 路由闭环
-- `milestone`：在完成这一组连续任务后，启动 qa-verifier 做模块级验证
-- `release`：启动 qa-verifier 做完整回归
+- `milestone`：在完成这一组连续任务后，做模块级验证；如环境支持且用户允许，可委派独立 QA
+- `release`：做完整回归；如环境支持且用户允许，可委派独立 QA
 
 **Web 项目**：
 - `local`：单测、服务层测试、类型检查
@@ -129,13 +134,13 @@ user-invocable: true
 - `milestone`：子系统集成验收（如战斗、背包、关卡编辑器）
 - `release`：构建 + 核心游玩 / 编辑器回归
 
-当且仅当满足以下之一时启动 qa-verifier agent：
+当且仅当满足以下之一时升级为独立 QA：
 - `verificationLevel = milestone` 或 `release`
 - 当前任务改变了主用户路径、跨边界集成、核心 runtime / editor 闭环
 - 用户明确要求独立 QA
 
 禁止：
-- 为每个微任务都启动 qa-verifier
+- 为每个微任务都启动独立 QA
 - QA 失败后立刻全量重跑；先只修当前报告对应 slice，再重跑同层级验证
 
 #### Playwright 视觉验证（按"是否视觉相关"判断，不按 verificationLevel）
@@ -155,7 +160,7 @@ user-invocable: true
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
 - `git commit -m "feat/fix/refactor: [任务标题] - task #[id]"`
-- 更新 task.json：将当前任务 status 改为 "completed"
+- 更新 task.json：将当前任务 status 从 "in_progress" 改为 "completed"
 - 更新 progress.json：
   - completedTasks += 1
   - currentTask = null
@@ -182,7 +187,7 @@ user-invocable: true
 a. **刚完成任务的 `verificationLevel = milestone` 或 `release`**（显式信号）
 b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending 任务的 changeArea 属于不同大类（如 `ui` ↔ `api`、`frontend` ↔ `backend`、`runtime` ↔ `editor`、`core` ↔ `infra`），视为隐式模块边界
 
-满足模块边界 → 写入 `.Codex/.work-pause` 文件，内容格式：
+满足模块边界 → 写入 `.codex/.work-pause` 文件，内容格式：
 ```
 模块边界已到达 - task #[刚完成的id] ([verificationLevel])
 下一个 task: #[下一个pending id] - [title]
@@ -214,7 +219,7 @@ b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
 - **编译门禁**：代码必须能编译通过才能提交
-- **外部评审与 QA 是边界门禁**：公开接口、跨模块、runtime / infra 边界改动用 code-reviewer，模块/发布验收用 qa-verifier
+- **独立评审与 QA 是边界门禁**：公开接口、跨模块、runtime / infra 边界改动升级评审，模块/发布验收升级 QA
 - **审美与交互品味问题要前置**：把可观察体验要求写进 `doneWhen` 和 spec，再实现
 - **增量提交**：每个任务完成立即提交，不累积
 - **进度可恢复**：progress.json 保证 session 断开后可恢复

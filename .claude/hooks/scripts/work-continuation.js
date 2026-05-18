@@ -21,7 +21,13 @@ try {
   if (progress.currentPhase !== 'in_progress') process.exit(0);
 
   const tasks = JSON.parse(fs.readFileSync(taskPath, 'utf8'));
-  const next = tasks.tasks.find(t => t.status === 'pending');
+  const list = Array.isArray(tasks.tasks) ? tasks.tasks : [];
+  const currentId = progress.currentTask && typeof progress.currentTask === 'object'
+    ? progress.currentTask.id
+    : progress.currentTask;
+  const next = list.find(t => t.status === 'in_progress')
+    || list.find(t => currentId && t.id === currentId && t.status !== 'completed' && t.status !== 'cancelled' && t.status !== 'blocked')
+    || list.find(t => t.status === 'pending');
   if (!next) process.exit(0);
 
   // 极简注入：只一个标记，让 Claude 知道继续 work 循环
