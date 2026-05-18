@@ -1,0 +1,15 @@
+[mcp_servers.exa]
+url = "https://mcp.exa.ai/mcp?tools=web_search_exa,get_code_context_exa,crawling_exa"
+
+[mcp_servers.fetch]
+args = ["mcp-server-fetch"]
+command = "uvx"
+
+[mcp_servers.fetch.env]
+PYTHONIOENCODING = "utf-8"
+
+[shell_environment_policy]
+inherit = "core"
+
+[shell_environment_policy.set]
+ENABLE_LSP_TOOL = "1"
