@@ -1,90 +1,88 @@
 ---
 name: work
-description: 持续自主开发循环。从 task.json 取任务，执行「编写→评审→编译→测试→提交」循环，更新进度，自动继续下一个任务直到全部完成。
+description: 持续自主开发循环。从 task.json 取任务，执行「规划→实现→评审→编译→验证→提交」循环，直到全部完成、全部阻塞或用户停止。
 argument-hint: <可选：指定任务ID>
 user-invocable: true
 ---
 
 # 持续自主开发循环
 
-你现在进入持续开发模式。你将从 task.json 中取出任务，逐个完成，永不停止直到全部任务完成或用户中断。
+你现在进入持续开发模式。`task.json` 是任务状态源，`progress.json` 是恢复点。你一次只做一个 task，完成后立即进入下一个可执行 task。
 
-**核心原则：task.json 是单一数据源，但不是每个 task 都值得一次重型外部评审或完整 QA。把最贵的验证留给真正跨边界、跨模块、用户可见或高成本的改动。**
+**永不停止**：除非全部任务完成、全部可执行任务阻塞、用户运行 `/stopwork`，或遇到不可恢复错误。
 
 ## Startup 启动检查（仅 session 内首次执行）
 
 ### 上下文来源
 
-`CLAUDE.md`、`spec.md`、`DESIGN.md`、`experience.md` 和 `.claude/rules/*.md` 已作为 session 基础上下文导入。流程中优先使用当前上下文；只有文件刚被修改、内容缺失或需要精确定位时再读取。
+`CLAUDE.md` 是稳定入口。需要项目细节时按需读取 `spec.md`、`DESIGN.md`、`experience.md`、`task.json`；按 `projectType` 读取 `.claude/rules/web.md` 或 `.claude/rules/game-engine.md`。
 
 ### 首次/后续判断
 
 读取 `progress.json` 的 `currentPhase` 和 `currentTask`：
 - = `completed`：输出完成摘要并停止
 - 存在 `task.status = "in_progress"` 或 `progress.currentTask`：优先恢复该任务
-- 其他情况：执行首次启动流程，定位下一个可执行 pending 任务
+- 其他情况：定位下一个可执行 pending 任务
 
 ### 首次启动流程
 
 1. 读取 `progress.json`，确认项目已初始化
-2. 从 `task.json` 定位当前可恢复任务或下一个可执行 pending 任务，提取 id / title / description / dependencies / changeArea / doneWhen / verificationLevel / files
+2. 从 `task.json` 定位当前可恢复任务或下一个可执行 pending 任务，提取 id / title / description / dependencies / doneWhen / verificationLevel / files
    - 跳过 status 为 `cancelled` 的任务
    - 跳过 status 为 `blocked` 或依赖未完成的 pending 任务
-   - 旧任务缺少 `changeArea` / `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
+   - 旧任务缺少 `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
 3. 检查 git 状态，确认当前工作区风险
 4. 若存在 `.claude/.work-stop`，读取原因后删除并继续
-5. 若存在 `.claude/.work-pause`，读取原因后删除并继续
-6. 如果选中的是 pending 任务，更新该 task 的 `status = "in_progress"`
-7. 更新 `progress.json`：`currentPhase = "in_progress"`，`currentTask = { id, title }`
+5. 如果选中的是 pending 任务，更新该 task 的 `status = "in_progress"`
+6. 更新 `progress.json`：`currentPhase = "in_progress"`，`currentTask = { id, title }`
 
 如果 `progress.json` 不存在，提示用户先运行 `/init-project`。
 
-### 循环读取边界
+### 循环读取原则
 
-- `task.json` 是任务状态源；每轮只取当前任务需要的条目
-- 每个 task 只读取要修改或验证的相关源文件
+- 每轮只读取当前任务需要的条目和文件
 - Edit 成功后以工具返回为准；仅在编译/测试报错指向具体位置时再读取定位
+- 不重复读取未变化的大文档
+
 ## 单任务循环（对每个任务重复执行）
 
 ### Step 1: Plan 规划
 - 读取当前任务的 description、dependencies、`doneWhen`、`verificationLevel`
 - 确认所有依赖任务已 completed
 - 识别需要创建/修改的文件
-- 使用 Context7 查询相关库/框架的最新文档（resolve-library-id → query-docs）
+- 使用 Context7 查询相关库/框架最新文档（resolve-library-id → query-docs）
 - 如遇不确定的技术问题，用 WebSearch 搜索
-- 输出简要实施计划（< 10 行），必须包含：
+- 输出简要实施计划（< 10 行），包含：
   - 本任务的 `doneWhen`
   - 最便宜的第一验证动作
-  - 是否需要外部 `code-reviewer` / `qa-verifier` 以及原因
+  - 是否需要 code-reviewer / qa-verifier 以及原因
 
 ### Step 2: Implement 实现
 - 按 CLAUDE.md 通用编码规范编写代码
-- 遵循项目类型对应的 rules 文件规则
+- 遵循项目类型对应 rules
 - 保持变更聚焦于当前单一任务
 - 组合优于继承，async/await，链式编程
 - 对 UI / editor / runtime 任务，把可观察结果直接对齐到 `doneWhen`
 - 不为未来假设提前抽象
 
-### Step 3: Review 评审（按边界触发，不默认重型）
+### Step 3: Review 评审
 先做作者自检：
-- 对照 `doneWhen` 检查实现是否真的覆盖了完成条件
-- 扫描失败路径、边界条件、异常输入、资源释放和回滚路径
-- 检查本任务是否引入了不必要的抽象或范围膨胀
+- 对照 `doneWhen` 检查完成条件
+- 扫描失败路径、异常输入、资源释放和回滚路径
+- 检查是否引入不必要抽象或范围膨胀
 
-仅在满足任一条件时启动 code-reviewer agent：
-- `changeArea = api | infra | runtime | cross-cutting`
-- 涉及并发、持久化、鉴权、安全、公开接口、数据迁移
-- 修改跨多个核心模块，或显著改变公共边界
+满足任一条件时启动 code-reviewer agent：
+- 涉及公开接口、跨模块契约、并发、持久化、鉴权、安全、数据迁移
+- 修改多个核心模块或核心 runtime/editor 路径
+- 实际 diff 显示风险高于普通局部任务
 
-否则：
-- 记录“已完成作者自检”，不启动外部评审
+否则记录“已完成作者自检”，不启动外部评审。
 
 如启动 code-reviewer agent：
 - 只传入当前任务变更文件
 - 修复所有 critical 级别问题
-- 修复置信度 ≥ 80 的 warning 级别问题
+- 修复置信度 >= 80 的 warning 级别问题
 - info 级别记录但不阻塞
-- 不因低风险微任务而扩大评审范围
 
 ### Step 4: Build 编译验证
 **此步骤为硬性门禁，必须通过后才能继续。**
@@ -92,7 +90,7 @@ user-invocable: true
 **Web 项目**：
 1. 如果 node_modules 不存在，先运行 `npm install` 或 `pnpm install`
 2. 先运行最窄的类型/编译检查：`npx tsc --noEmit`、`npm run typecheck` 或等价命令
-3. 如存在 `build` script，再运行 `npm run build` 或 `pnpm build`
+3. 如存在 build script，再运行 `npm run build` 或 `pnpm build`
 4. 如当前任务已有窄测试命令，优先跑当前 slice 的那一条
 5. 必须零编译 error
 
@@ -100,60 +98,35 @@ user-invocable: true
 1. Unity：`Unity -batchmode -nographics -logFile - -quit -projectPath .`
 2. Unreal：使用 UnrealBuildTool 编译
 3. Cocos：`npm run build` 或 `cocos compile`
-4. 如存在与当前 system / scene / editor 相关的单元测试，也优先运行最窄的一组
+4. 如存在当前 system / scene / editor 相关单元测试，也优先运行最窄的一组
 5. 必须零编译 error
 
-**编译失败 → 立即修复代码，重新编译，循环直到通过。不得跳过此步骤。**
+编译失败则修复代码并重新编译，直到通过。
 
-### Step 5: Test 验证（分层执行）
-始终从最便宜、最能证伪当前假设的验证开始。验证层级只有四档：
+### Step 5: Test 验证
+始终从最便宜、最能证伪当前假设的验证开始。
 
 - `local`：局部单测、类型检查、编译烟雾、纯逻辑验证
 - `slice`：只验证当前任务对应的一条功能闭环
-- `milestone`：多个连续任务组成一个完整模块后，再做一次模块级验收
-- `release`：模块收口、合并、部署前的完整回归
+- `milestone`：验证一个完整模块或一组连续任务的主路径
+- `release`：完整回归
 
 按 `verificationLevel` 执行：
-
-- `local`：不启动 qa-verifier；只做最窄的可执行验证
-- `slice`：围绕 `doneWhen` 运行当前 slice 的测试 / 场景 / 路由闭环
-- `milestone`：在完成这一组连续任务后，启动 qa-verifier 做模块级验证
+- `local`：不启动 qa-verifier；只做最窄验证
+- `slice`：围绕 `doneWhen` 运行当前 slice 测试 / 场景 / 路由闭环
+- `milestone`：启动 qa-verifier 做模块级验证
 - `release`：启动 qa-verifier 做完整回归
-
-**Web 项目**：
-- `local`：单测、服务层测试、类型检查
-- `slice`：只验证当前路由 / 表单 / API / 状态切换闭环
-- `milestone`：一个完整模块或多条连续任务共用的用户流
-- `release`：完整用户路径回归 + 关键交互检查
-
-**游戏项目**：
-- `local`：system 逻辑单测、编译烟雾
-- `slice`：受影响的 scene / editor tool / runtime loop
-- `milestone`：子系统集成验收（如战斗、背包、关卡编辑器）
-- `release`：构建 + 核心游玩 / 编辑器回归
 
 当且仅当满足以下之一时启动 qa-verifier agent：
 - `verificationLevel = milestone` 或 `release`
-- 当前任务改变了主用户路径、跨边界集成、核心 runtime / editor 闭环
+- 当前任务改变主用户路径、跨模块集成、核心 runtime/editor 闭环
 - 用户明确要求独立 QA
 
-禁止：
-- 为每个微任务都启动 qa-verifier
-- QA 失败后立刻全量重跑；先只修当前报告对应 slice，再重跑同层级验证
-
-#### Playwright 视觉验证（按"是否视觉相关"判断，不按 verificationLevel）
-
-视觉相关 task = 改动涉及 UI 渲染、页面状态、用户交互、布局/样式、动画、表单。
-此类任务**必须**启动 playwright，无论 verificationLevel 是什么：
-
+视觉相关 task 必须启动 Playwright：
 1. `browser_navigate` 打开目标页面
 2. `browser_snapshot` 抓 a11y tree 验证渲染
 3. `browser_console_messages` 检查零 error
-4. `browser_click` / `browser_type` 跑一遍 doneWhen 闭环
-
-非视觉相关 task（纯 API / 纯逻辑 / 配置 / 数据处理 / build 脚本）跳过 playwright，只跑单测和编译。
-
-> 注：视觉相关任务尽量连续执行，便于复用同一轮浏览器验证上下文。
+4. `browser_click` / `browser_type` 跑一遍 `doneWhen` 闭环
 
 ### Step 6: Commit 提交
 - `git add` 相关变更文件（不要用 git add -A）
@@ -172,33 +145,12 @@ user-invocable: true
 - 只记录对未来 session 有价值的偏好、技术发现或踩坑记录
 - 如有新内容：`git add experience.md && git commit -m "chore: update experience notes - task #[id]"`
 - 如无新发现，直接进入 Step 7
-### Step 7: Continue 继续 + 模块边界检测
 
-#### 7.1 检查所有任务是否完成
-- 用 Grep 在 task.json 找下一个 pending：`Grep '"status": "pending"' task.json -n | head -1`
-- 无 pending → 更新 progress.json 的 currentPhase = "completed"，输出完成摘要，停止
-
-#### 7.2 模块边界检测（决定是否提示 /clear 续作）
-
-**仅当满足以下任一条件时**，认定刚完成的任务是「模块边界」：
-
-a. **刚完成任务的 `verificationLevel = milestone` 或 `release`**（显式信号）
-b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending 任务的 changeArea 属于不同大类（如 `ui` ↔ `api`、`frontend` ↔ `backend`、`runtime` ↔ `editor`、`core` ↔ `infra`），视为隐式模块边界
-
-满足模块边界 → 写入 `.claude/.work-pause` 文件，内容格式：
-```
-模块边界已到达 - task #[刚完成的id] ([verificationLevel])
-下一个 task: #[下一个pending id] - [title]
-请先 /clear 释放上下文，再 /work 继续。
-```
-然后输出**单行提示**（不要长篇大论）：
-```
-✅ 模块边界（task #N → task #M 跨域）。请 /clear 后 /work 继续。
-```
-**停止当前 session**（Stop hook 会识别 .work-pause 不强制继续）。
-
-#### 7.3 非模块边界
-- **立即**回到 Step 1，进入下一个 pending task。永不询问"是否继续"。
+### Step 7: Continue 继续
+1. 检查 task.json 是否还有依赖已满足的 pending 任务
+2. 无 pending 且无 blocked 任务 → 更新 progress.json 的 `currentPhase = "completed"`，输出完成摘要，停止
+3. 无可执行 pending 但存在 blocked/依赖未满足任务 → 输出阻塞报告，停止
+4. 有可执行 pending → 立即回到 Step 1，进入下一个任务
 
 ## 错误恢复
 
@@ -212,12 +164,10 @@ b. **changeArea 跨度大**：刚完成任务的 changeArea 与下一个 pending
 
 ## 重要原则
 
-- **永不停止**：除非全部完成、全部阻塞或到达模块边界，否则持续执行下一个任务
-- **绝对禁止提前停止**：非模块边界处，完成一个任务后直接进入下一个任务 Step 1，不询问是否继续
+- **永不停止**：除非全部完成、全部阻塞、用户停止或不可恢复错误
+- **绝对禁止提前停止**：完成一个任务后直接进入下一个任务 Step 1
 - **单任务聚焦**：一次只做一个任务，做完再取下一个
 - **搜索优先**：写代码前先用 Context7 查文档
 - **编译门禁**：代码必须能编译通过才能提交
-- **外部评审与 QA 是边界门禁**：公开接口、跨模块、runtime / infra 边界改动用 code-reviewer，模块/发布验收用 qa-verifier
-- **审美与交互品味问题要前置**：把可观察体验要求写进 `doneWhen` 和 spec，再实现
 - **增量提交**：每个任务完成立即提交，不累积
 - **进度可恢复**：progress.json 保证 session 断开后可恢复

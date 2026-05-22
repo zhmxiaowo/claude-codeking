@@ -51,7 +51,7 @@ describe('模板文件验证', () => {
       assert.ok(content.includes('## 核心功能'));
     });
 
-    it('应包含架构设计章节（新增）', () => {
+    it('应包含架构设计章节', () => {
       assert.ok(content.includes('## 架构设计'));
     });
 
@@ -75,7 +75,7 @@ describe('模板文件验证', () => {
       assert.ok(content.includes('### 关键决策'));
     });
 
-    it('应包含验证与验收策略章节（新增）', () => {
+    it('应包含验证与验收策略章节', () => {
       assert.ok(content.includes('## 验证与验收策略'));
     });
 
@@ -83,12 +83,8 @@ describe('模板文件验证', () => {
       assert.ok(content.includes('### 验收层级'));
     });
 
-    it('验证与验收策略应包含模块里程碑子章节', () => {
-      assert.ok(content.includes('### 模块里程碑'));
-    });
-
-    it('验证与验收策略应包含用户可见质量标准子章节', () => {
-      assert.ok(content.includes('### 用户可见质量标准'));
+    it('验证与验收策略应包含质量标准子章节', () => {
+      assert.ok(content.includes('### 质量标准'));
     });
 
     it('应包含非功能需求章节', () => {
@@ -151,17 +147,16 @@ describe('模板文件验证', () => {
       assert.ok(['low', 'medium', 'high'].includes(sampleTask.complexity));
     });
 
-    it('task 应有 changeArea 字段（新增）', () => {
-      assert.ok('changeArea' in sampleTask);
-      assert.ok(['core', 'api', 'ui', 'editor', 'runtime', 'infra', 'cross-cutting'].includes(sampleTask.changeArea));
+    it('task 不应有 changeArea 字段', () => {
+      assert.ok(!('changeArea' in sampleTask));
     });
 
-    it('task 应有 doneWhen 数组（新增）', () => {
+    it('task 应有 doneWhen 数组', () => {
       assert.ok(Array.isArray(sampleTask.doneWhen));
       assert.ok(sampleTask.doneWhen.length > 0);
     });
 
-    it('task 应有 verificationLevel 字段（新增）', () => {
+    it('task 应有 verificationLevel 字段', () => {
       assert.ok('verificationLevel' in sampleTask);
       assert.ok(['local', 'slice', 'milestone', 'release'].includes(sampleTask.verificationLevel));
     });
@@ -174,12 +169,12 @@ describe('模板文件验证', () => {
       assert.ok('notes' in sampleTask);
     });
 
-    it('task 应有 origin 字段（新增）', () => {
+    it('task 应有 origin 字段', () => {
       assert.ok('origin' in sampleTask);
       assert.ok(['init', 'change'].includes(sampleTask.origin));
     });
 
-    it('task 应有 changeRef 字段（新增）', () => {
+    it('task 应有 changeRef 字段', () => {
       assert.ok('changeRef' in sampleTask);
     });
   });
@@ -241,7 +236,7 @@ describe('模板文件验证', () => {
       assert.ok(Array.isArray(data.blockedTasks));
     });
 
-    it('应有 changeHistory 数组（新增）', () => {
+    it('应有 changeHistory 数组', () => {
       assert.ok(Array.isArray(data.changeHistory));
       assert.strictEqual(data.changeHistory.length, 0);
     });

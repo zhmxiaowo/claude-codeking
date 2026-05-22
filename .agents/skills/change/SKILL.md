@@ -17,7 +17,7 @@ user-invocable: true
 
 如果描述不够清晰，追问：
 - "具体要改什么行为？从 X 改成 Y？"
-- "这个变更影响哪些页面/模块？"
+- "这个变更影响哪些行为、页面或模块？"
 
 ## Step 2: 分析影响
 
@@ -26,7 +26,7 @@ user-invocable: true
 - 变更涉及哪些未开始的任务
 - 是否需要新增任务
 - 是否有任务需要取消
-- 是否需要重划 `doneWhen`、`verificationLevel` 或模块里程碑边界
+- 是否需要重划 `doneWhen` 或 `verificationLevel`
 
 ## Step 3: 输出变更方案
 
@@ -84,11 +84,10 @@ user-invocable: true
 **新增 task 的 ID 规则**：取当前最大 id + 1。
 
 无论是新增还是修改任务，都要同步维护：
-- `changeArea`
 - `doneWhen`
 - `verificationLevel`
 
-如果变更导致多个连续任务更适合共享一次模块验收，直接调整这些任务的 `verificationLevel` 为 `milestone`，而不是保留“每任务一次重型 QA”的默认假设。
+如果变更需要更深验收，直接调整相关任务的 `verificationLevel` 为 `milestone` 或 `release`。
 
 ### 4.3 更新 progress.json
 
@@ -116,7 +115,7 @@ git add spec.md task.json progress.json experience.md
 git commit -m "change: [变更描述简述]"
 ```
 
-> 提示用户：spec.md 已修改；如当前对话还要继续长期开发，建议先 `/clear` 再 `/work`。
+> 提示用户：spec.md 已修改；运行 `/work` 可继续开发。
 
 ## Step 6: 报告
 

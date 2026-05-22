@@ -106,205 +106,7 @@ async function runCodexHook(scriptName, stdinData, options = {}) {
 }
 
 // ============================================================
-// 2. session-start-inject.js
-// ============================================================
-describe('session-start-inject.js', () => {
-  const script = 'session-start-inject.js';
-  let tmpDir;
-
-  before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-'));
-  });
-
-  after(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('无 progress.json 时静默退出 (exit 0, 无输出)', async () => {
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-
-  it('有 progress.json 时输出进度摘要', async () => {
-    const progress = {
-      projectName: 'TestApp',
-      projectType: 'web',
-      currentPhase: 'in_progress',
-      totalTasks: 10,
-      completedTasks: 3,
-      currentTask: null,
-      lastSession: { date: '2026-04-01', tasksCompleted: [1, 2, 3], notes: '' },
-      blockedTasks: [],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify(progress));
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.match(r.stderr, /TestApp/);
-    assert.match(r.stderr, /3\/10/);
-    assert.match(r.stderr, /1, 2, 3/);
-  });
-
-  it('有阻塞任务时输出警告', async () => {
-    const progress = {
-      projectName: 'TestApp',
-      projectType: 'web',
-      currentPhase: 'in_progress',
-      totalTasks: 10,
-      completedTasks: 3,
-      currentTask: null,
-      lastSession: { date: '', tasksCompleted: [], notes: '' },
-      blockedTasks: [4, 5],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify(progress));
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.match(r.stderr, /阻塞/);
-    assert.match(r.stderr, /4, 5/);
-  });
-
-  it('有 .work-stop 文件时输出停止信号', async () => {
-    const progress = { projectName: 'X', projectType: 'web', currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2, lastSession: { tasksCompleted: [] }, blockedTasks: [] };
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify(progress));
-    const claudeDir = path.join(tmpDir, '.claude');
-    fs.mkdirSync(claudeDir, { recursive: true });
-    fs.writeFileSync(path.join(claudeDir, '.work-stop'), '用户需要测试界面');
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.match(r.stderr, /停止信号/);
-    assert.match(r.stderr, /用户需要测试界面/);
-    // cleanup
-    fs.rmSync(path.join(claudeDir, '.work-stop'));
-  });
-
-  it('有验证失败记录时输出', async () => {
-    const progress = {
-      projectName: 'X', projectType: 'web', currentPhase: 'in_progress',
-      totalTasks: 5, completedTasks: 2,
-      lastSession: { tasksCompleted: [] }, blockedTasks: [],
-      verifyFailures: [{ taskId: 3, reason: '编译失败 - 缺少依赖' }],
-    };
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify(progress));
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.match(r.stderr, /验证失败/);
-    assert.match(r.stderr, /编译失败/);
-  });
-});
-
-// ============================================================
-// 3. work-continuation.js
-// ============================================================
-describe('work-continuation.js', () => {
-  const script = 'work-continuation.js';
-  let tmpDir;
-
-  before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-cont-'));
-  });
-
-  after(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('无 progress.json 时静默退出', async () => {
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-
-  it('currentPhase 非 in_progress 时静默退出', async () => {
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
-      currentPhase: 'initialized', totalTasks: 5, completedTasks: 0,
-    }));
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-
-  it('有停止信号时静默退出（尊重用户 /stopwork）', async () => {
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
-      currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2,
-    }));
-    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
-      tasks: [
-        { id: 1, status: 'completed' }, { id: 2, status: 'completed' },
-        { id: 3, status: 'pending', title: 'Next Task' },
-      ],
-    }));
-    const claudeDir = path.join(tmpDir, '.claude');
-    fs.mkdirSync(claudeDir, { recursive: true });
-    fs.writeFileSync(path.join(claudeDir, '.work-stop'), '测试中');
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-    fs.rmSync(path.join(claudeDir, '.work-stop'));
-  });
-
-  it('有未完成任务且无停止信号时强制续作', async () => {
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
-      currentPhase: 'in_progress', totalTasks: 5, completedTasks: 2,
-    }));
-    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
-      tasks: [
-        { id: 1, status: 'completed' }, { id: 2, status: 'completed' },
-        { id: 3, status: 'pending', title: '实现登录页' },
-        { id: 4, status: 'pending', title: '实现注册页' },
-      ],
-    }));
-    // 确保没有 stop 文件
-    const claudeDir = path.join(tmpDir, '.claude');
-    fs.mkdirSync(claudeDir, { recursive: true });
-    const stopPath = path.join(claudeDir, '.work-stop');
-    const pausePath = path.join(claudeDir, '.work-pause');
-    if (fs.existsSync(stopPath)) fs.rmSync(stopPath);
-    if (fs.existsSync(pausePath)) fs.rmSync(pausePath);
-
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 2);
-    assert.match(r.stderr, /work next/);
-    assert.match(r.stderr, /#3/);
-  });
-
-  it('有 in_progress 任务时优先续作当前任务', async () => {
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
-      currentPhase: 'in_progress',
-      currentTask: { id: 4, title: '继续实现支付' },
-      totalTasks: 5,
-      completedTasks: 2,
-    }));
-    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
-      tasks: [
-        { id: 3, status: 'pending', title: '实现登录页' },
-        { id: 4, status: 'in_progress', title: '继续实现支付' },
-      ],
-    }));
-    const claudeDir = path.join(tmpDir, '.claude');
-    fs.mkdirSync(claudeDir, { recursive: true });
-    const stopPath = path.join(claudeDir, '.work-stop');
-    const pausePath = path.join(claudeDir, '.work-pause');
-    if (fs.existsSync(stopPath)) fs.rmSync(stopPath);
-    if (fs.existsSync(pausePath)) fs.rmSync(pausePath);
-
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 2);
-    assert.match(r.stderr, /#4/);
-  });
-
-  it('所有任务完成时静默退出', async () => {
-    fs.writeFileSync(path.join(tmpDir, 'progress.json'), JSON.stringify({
-      currentPhase: 'in_progress', totalTasks: 2, completedTasks: 2,
-    }));
-    fs.writeFileSync(path.join(tmpDir, 'task.json'), JSON.stringify({
-      tasks: [
-        { id: 1, status: 'completed' }, { id: 2, status: 'completed' },
-      ],
-    }));
-    const r = await runHook(script, undefined, { cwd: tmpDir });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-});
-
-// ============================================================
-// 3.5 next-task.js
+// 2. next-task.js
 // ============================================================
 describe('next-task.js', () => {
   const script = 'next-task.js';
@@ -384,7 +186,7 @@ describe('next-task.js', () => {
 });
 
 // ============================================================
-// 4. pre-write-context7-check.js
+// 3. pre-write-context7-check.js
 // ============================================================
 describe('pre-write-context7-check.js', () => {
   const script = 'pre-write-context7-check.js';
@@ -478,7 +280,7 @@ describe('pre-write-context7-check.js', () => {
 });
 
 // ============================================================
-// 5. track-context7-query.js
+// 4. track-context7-query.js
 // ============================================================
 describe('track-context7-query.js', () => {
   const script = 'track-context7-query.js';
@@ -559,7 +361,7 @@ describe('track-context7-query.js', () => {
 });
 
 // ============================================================
-// 7. Codex hook path parity
+// 5. Codex hook path parity
 // ============================================================
 describe('Codex hooks', () => {
   it('脚本文本不应读写 .claude 运行态目录', () => {
@@ -609,51 +411,3 @@ describe('Codex hooks', () => {
   });
 });
 
-// ============================================================
-// 6. context-compact-warn.js
-// ============================================================
-describe('context-compact-warn.js', () => {
-  const script = 'context-compact-warn.js';
-  let tmpDir;
-
-  before(() => {
-    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'hook-test-compact-'));
-  });
-
-  after(() => {
-    fs.rmSync(tmpDir, { recursive: true, force: true });
-  });
-
-  it('无 transcript_path 时静默退出', async () => {
-    const r = await runHook(script, {});
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-
-  it('小 transcript 不触发警告 (<50%)', async () => {
-    const smallFile = path.join(tmpDir, 'small.txt');
-    fs.writeFileSync(smallFile, 'x'.repeat(100 * 1024)); // 100KB ≈ 25k tokens ≈ 12.5%
-    const r = await runHook(script, { transcript_path: smallFile });
-    assert.strictEqual(r.code, 0);
-    assert.strictEqual(r.stderr, '');
-  });
-
-  it('中等 transcript 触发温和提醒 (50-90%)', async () => {
-    const medFile = path.join(tmpDir, 'medium.txt');
-    // 50%: 100k tokens = 400KB
-    fs.writeFileSync(medFile, 'x'.repeat(500 * 1024)); // 500KB ≈ 125k tokens ≈ 62.5%
-    const r = await runHook(script, { transcript_path: medFile });
-    assert.strictEqual(r.code, 0);
-    assert.match(r.stderr, /上下文提醒/);
-    assert.match(r.stderr, /compact/i);
-  });
-
-  it('大 transcript 触发紧急警告 (>=90%)', async () => {
-    const bigFile = path.join(tmpDir, 'big.txt');
-    // 90%: 180k tokens = 720KB
-    fs.writeFileSync(bigFile, 'x'.repeat(800 * 1024)); // 800KB ≈ 200k tokens
-    const r = await runHook(script, { transcript_path: bigFile });
-    assert.strictEqual(r.code, 0);
-    assert.match(r.stderr, /告急/);
-  });
-});

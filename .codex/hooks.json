@@ -30,34 +30,6 @@
           }
         ]
       }
-    ],
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/scripts/session-start-inject.js"
-          }
-        ]
-      }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/scripts/context-compact-warn.js"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/scripts/work-continuation.js"
-          }
-        ]
-      }
     ]
   }
 }

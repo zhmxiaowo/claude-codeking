@@ -98,16 +98,31 @@ describe('Rules 文件验证', () => {
       assert.ok(content.includes('ECS'));
     });
 
-    it('应定义 Entity 为纯 ID', () => {
-      assert.ok(content.includes('Entity') && content.includes('纯 ID'));
+    it('应定义 Entity 为引擎业务对象', () => {
+      assert.ok(content.includes('Entity') && content.includes('Actor') && content.includes('GameObject') && content.includes('Node'));
+      assert.ok(content.includes('Transform'));
     });
 
-    it('应定义 Component 为纯数据', () => {
-      assert.ok(content.includes('Component') && content.includes('纯数据'));
+    it('应允许 Component 包含自身数据相关方法', () => {
+      assert.ok(content.includes('Component') && content.includes('数据容器'));
+      assert.ok(content.includes('自身'));
     });
 
-    it('应定义 System 为纯逻辑', () => {
-      assert.ok(content.includes('System') && content.includes('纯逻辑'));
+    it('应定义 System 为模块中心', () => {
+      assert.ok(content.includes('System') && content.includes('模块中心'));
+      assert.ok(content.includes('<ModuleName>System'));
+    });
+
+    it('应包含跨模块 Flow 编排层', () => {
+      assert.ok(content.includes('Flow'));
+      assert.ok(content.includes('代码版蓝图'));
+      assert.ok(content.includes('业务流程中枢'));
+      assert.ok(content.includes('transaction'));
+      assert.ok(content.includes('删除 `Flows/` 不应影响'));
+    });
+
+    it('应禁止 System 直接互调', () => {
+      assert.ok(content.includes('System 不直接互调'));
     });
 
     it('应禁止 MonoBehaviour 万能类', () => {
@@ -128,20 +143,29 @@ describe('Rules 文件验证', () => {
     });
 
     // 链式编程
-    it('应包含 UI 链式构建示例', () => {
-      assert.ok(content.includes('UIBuilder'));
-    });
-
-    it('应包含动画链式示例', () => {
-      assert.ok(content.includes('MoveTo') || content.includes('anim'));
+    it('应包含链式编程原则且不写具体示例', () => {
+      assert.ok(content.includes('链式操作'));
+      assert.ok(!content.includes('UIBuilder'));
+      assert.ok(!content.includes('MoveTo'));
     });
 
     // 目录结构
     it('应包含标准目录结构', () => {
-      const dirs = ['Components', 'Systems', 'Services', 'Utils', 'UI', 'Config'];
+      const dirs = ['<ProjectName>', 'Modules', '<ModuleName>', 'Components', 'Systems', 'Data', 'Tests', 'Flows', 'Shared', 'Services', 'Utils', 'UI', 'Config'];
       for (const d of dirs) {
         assert.ok(content.includes(d), `目录结构应包含 ${d}/`);
       }
+    });
+
+    it('应要求按模块聚合 ECS 代码', () => {
+      assert.ok(content.includes('按模块聚合'));
+      assert.ok(content.includes('不按 Components / Systems 全局分层'));
+      assert.ok(content.includes('跨模块编排只放 `Flows/`'));
+    });
+
+    it('应支持 Shared 临时能力 Component', () => {
+      assert.ok(content.includes('Shared/Components'));
+      assert.ok(content.includes('临时能力 Component'));
     });
 
     // 代码规范
@@ -150,9 +174,16 @@ describe('Rules 文件验证', () => {
       assert.ok(content.includes('对象池') || content.includes('object pool'));
     });
 
+    it('应要求资源引用集中配置', () => {
+      assert.ok(content.includes('资源路径'));
+      assert.ok(content.includes('Prefab'));
+      assert.ok(content.includes('Config/Data'));
+    });
+
     // 测试
-    it('应要求 System 可单元测试', () => {
+    it('应要求 System 和 Flow 可单元测试', () => {
       assert.ok(content.includes('单元测试') || content.includes('unit test'));
+      assert.ok(content.includes('Flow'));
     });
 
     it('应要求零 warning 策略', () => {
@@ -194,13 +225,9 @@ describe('Codex rules 与 AGENTS.md 一致性', () => {
     assert.ok(!agentsMd.includes('.Codex/rules'));
   });
 
-  it('AGENTS.md 的 @import 应指向真实存在的文件', () => {
+  it('AGENTS.md 不应使用 @import 预加载上下文', () => {
     const imports = [...agentsMd.matchAll(/^@(.+)$/gm)].map(m => m[1].trim());
-    assert.ok(imports.length > 0, 'AGENTS.md 应包含 @import');
-    for (const rel of imports) {
-      if (rel === 'spec.md' || rel === 'DESIGN.md' || rel === 'experience.md') continue;
-      assert.ok(fs.existsSync(path.join(ROOT, rel)), `${rel} 不存在`);
-    }
+    assert.strictEqual(imports.length, 0, 'AGENTS.md 不应包含 @import');
   });
 
   it('.agents/rules 应与 .claude/rules 同步', () => {

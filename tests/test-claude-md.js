@@ -98,11 +98,11 @@ describe('CLAUDE.md 主文档验证', () => {
       assert.ok(CLAUDE_MD.includes('/work'));
     });
 
-    it('应包含 /stopwork 命令（新增）', () => {
+    it('应包含 /stopwork 命令', () => {
       assert.ok(CLAUDE_MD.includes('/stopwork'));
     });
 
-    it('应包含 /change 命令（新增）', () => {
+    it('应包含 /change 命令', () => {
       assert.ok(CLAUDE_MD.includes('/change'));
     });
 
@@ -137,9 +137,9 @@ describe('CLAUDE.md 主文档验证', () => {
     });
 
     it('应包含任务验收字段', () => {
-      assert.ok(CLAUDE_MD.includes('changeArea'));
       assert.ok(CLAUDE_MD.includes('doneWhen'));
       assert.ok(CLAUDE_MD.includes('verificationLevel'));
+      assert.ok(!CLAUDE_MD.includes('changeArea'));
     });
 
     it('应包含四层验证级别', () => {

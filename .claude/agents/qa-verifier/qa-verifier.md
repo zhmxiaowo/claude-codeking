@@ -17,7 +17,7 @@ maxTurns: 18
 ## 0. 输入上下文
 
 - 读取 `spec.md` 或 `progress.json` 的 `projectType`
-- 读取 `task.json` 或调用提示，识别当前任务的 `changeArea`、`doneWhen`、`verificationLevel`
+- 读取 `task.json` 或调用提示，识别当前任务的 `doneWhen`、`verificationLevel`
 - 推断本次模式：
   - `smoke`：30-90 秒健康检查，确认应用或项目没有明显坏死
   - `slice`：只验证当前任务对应的一条闭环

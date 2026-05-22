@@ -215,6 +215,17 @@ describe('Claude/Codex Skill 契约一致性', () => {
     }
   });
 
+  it('/work 不应包含模块边界暂停或手动 compact 流程', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const work = fs.readFileSync(path.join(dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(!work.includes('.work-pause'), `${dir} /work 不应使用 .work-pause`);
+      assert.ok(!work.includes('模块边界检测'), `${dir} /work 不应包含模块边界检测`);
+      assert.ok(!work.includes('/clear'), `${dir} /work 不应要求 /clear`);
+      assert.ok(!/compact/i.test(work), `${dir} /work 不应包含 compact 流程`);
+      assert.ok(!work.includes('changeArea'), `${dir} /work 不应依赖 changeArea`);
+    }
+  });
+
   it('/stopwork 不应要求破坏性回滚未完成变更', () => {
     for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
       const stop = fs.readFileSync(path.join(dir, 'stopwork', 'SKILL.md'), 'utf8');

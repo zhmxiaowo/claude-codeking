@@ -52,15 +52,8 @@ describe('settings.json 验证', () => {
       assert.ok(settings.hooks);
     });
 
-    // SessionStart hooks
-    it('应注册 SessionStart hook', () => {
-      assert.ok(settings.hooks.SessionStart);
-      assert.ok(settings.hooks.SessionStart.length > 0);
-    });
-
-    it('SessionStart 应包含 session-start-inject.js', () => {
-      const cmds = JSON.stringify(settings.hooks.SessionStart);
-      assert.ok(cmds.includes('session-start-inject.js'));
+    it('不应注册 SessionStart hook', () => {
+      assert.ok(!settings.hooks.SessionStart);
     });
 
     // PreToolUse hooks
@@ -100,20 +93,8 @@ describe('settings.json 验证', () => {
       assert.ok(cmds.includes('track-context7-query.js'));
     });
 
-    // Stop hooks
-    it('应注册 Stop hooks', () => {
-      assert.ok(settings.hooks.Stop);
-      assert.ok(settings.hooks.Stop.length >= 2, 'Stop hooks 应至少有 2 个（compact-warn + work-continuation）');
-    });
-
-    it('Stop 应包含 context-compact-warn.js', () => {
-      const cmds = JSON.stringify(settings.hooks.Stop);
-      assert.ok(cmds.includes('context-compact-warn.js'));
-    });
-
-    it('Stop 应包含 work-continuation.js（新增）', () => {
-      const cmds = JSON.stringify(settings.hooks.Stop);
-      assert.ok(cmds.includes('work-continuation.js'));
+    it('不应注册 Stop hooks', () => {
+      assert.ok(!settings.hooks.Stop);
     });
   });
 
@@ -123,11 +104,8 @@ describe('settings.json 验证', () => {
   describe('Hook 脚本文件存在性', () => {
     const expectedScripts = [
       'block-dangerous-cmd.js',
-      'context-compact-warn.js',
       'pre-write-context7-check.js',
-      'session-start-inject.js',
       'track-context7-query.js',
-      'work-continuation.js',
     ];
 
     for (const script of expectedScripts) {
@@ -144,6 +122,11 @@ describe('settings.json 验证', () => {
     it('应启用 LSP 工具', () => {
       assert.ok(settings.env);
       assert.strictEqual(settings.env.ENABLE_LSP_TOOL, '1');
+    });
+
+    it('应启用 Claude 官方自动压缩', () => {
+      assert.strictEqual(settings.env.CLAUDE_CODE_AUTO_COMPACT_WINDOW, '1000000');
+      assert.strictEqual(settings.env.CLAUDE_AUTOCOMPACT_PCT_OVERRIDE, '40');
     });
   });
 });
@@ -223,11 +206,8 @@ describe('Codex hooks.json 验证', () => {
     const content = JSON.stringify(hooks);
     for (const script of [
       'block-dangerous-cmd.js',
-      'context-compact-warn.js',
       'pre-write-context7-check.js',
-      'session-start-inject.js',
       'track-context7-query.js',
-      'work-continuation.js',
     ]) {
       assert.ok(content.includes(`.codex/hooks/scripts/${script}`), `缺少 ${script}`);
     }

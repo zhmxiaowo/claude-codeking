@@ -19,7 +19,6 @@ function toResult(task) {
     description: task.description,
     status: task.status,
     dependencies: Array.isArray(task.dependencies) ? task.dependencies : [],
-    changeArea: task.changeArea || null,
     doneWhen: task.doneWhen || [],
     verificationLevel: task.verificationLevel || null,
     files: task.files || [],
