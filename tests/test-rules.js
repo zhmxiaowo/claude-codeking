@@ -194,14 +194,20 @@ describe('Rules 文件验证', () => {
 
 describe('Rules 与 CLAUDE.md 一致性', () => {
   const claudeMd = fs.readFileSync(path.join(ROOT, 'CLAUDE.md'), 'utf8');
+  const workSkill = fs.readFileSync(path.join(ROOT, '.claude', 'skills', 'work', 'SKILL.md'), 'utf8');
 
-  it('CLAUDE.md 应引用 web.md', () => {
-    assert.ok(claudeMd.includes('web'));
-    assert.ok(claudeMd.includes('.claude/rules'));
+  it('/work 应引用 web.md', () => {
+    assert.ok(workSkill.includes('web'));
+    assert.ok(workSkill.includes('.claude/rules'));
   });
 
-  it('CLAUDE.md 应引用 game-engine.md', () => {
-    assert.ok(claudeMd.includes('game-engine'));
+  it('/work 应引用 game-engine.md', () => {
+    assert.ok(workSkill.includes('game-engine'));
+  });
+
+  it('CLAUDE.md 不应直接引用 rules 或 projectType', () => {
+    assert.ok(!claudeMd.includes('.claude/rules'));
+    assert.ok(!claudeMd.includes('projectType'));
   });
 
   it('CLAUDE.md 的通用规范不应与 rules 重复（委托给 rules）', () => {
@@ -215,13 +221,20 @@ describe('Rules 与 CLAUDE.md 一致性', () => {
 
 describe('Codex rules 与 AGENTS.md 一致性', () => {
   const agentsMd = fs.readFileSync(path.join(ROOT, 'AGENTS.md'), 'utf8');
+  const workSkill = fs.readFileSync(path.join(ROOT, '.agents', 'skills', 'work', 'SKILL.md'), 'utf8');
 
   it('.agents/rules 目录应存在', () => {
     assert.ok(fs.existsSync(AGENTS_RULES_DIR));
   });
 
-  it('AGENTS.md 应引用 .agents/rules', () => {
-    assert.ok(agentsMd.includes('.agents/rules'));
+  it('Codex /work 应引用 .agents/rules', () => {
+    assert.ok(workSkill.includes('.agents/rules'));
+    assert.ok(!workSkill.includes('.Codex/rules'));
+  });
+
+  it('AGENTS.md 不应直接引用 rules 或 projectType', () => {
+    assert.ok(!agentsMd.includes('.agents/rules'));
+    assert.ok(!agentsMd.includes('projectType'));
     assert.ok(!agentsMd.includes('.Codex/rules'));
   });
 

@@ -7,169 +7,132 @@ user-invocable: true
 
 # 持续自主开发循环
 
-你现在进入持续开发模式。`task.json` 是任务状态源，`progress.json` 是恢复点。你一次只做一个 task，完成后立即进入下一个可执行 task。
+`/work` 是持续开发的唯一状态机。一次只做一个 task，完成后立即取下一个可执行 task。
 
 **永不停止**：除非全部任务完成、全部可执行任务阻塞、用户运行 `/stopwork`，或遇到不可恢复错误。
 
-## Startup 启动检查（仅 session 内首次执行）
+## Startup 启动
 
-### 上下文来源
+Startup 是项目核心上下文装载：进入 `/work` 时，必须确保当前上下文已经完整包含最新的 `spec.md`、`task.json`、`progress.json`、可选 `experience.md`，以及当前 `projectType` 对应 rules。
 
-`AGENTS.md` 是稳定入口。需要项目细节时按需读取 `spec.md`、`DESIGN.md`、`experience.md`、`task.json`；按 `projectType` 读取 `.agents/rules/web.md` 或 `.agents/rules/game-engine.md`。
+1. 检查项目根目录是否同时存在 `spec.md`、`task.json`、`progress.json`；任一缺失则提示用户先运行 `/init-project` 并停止。
+2. 如果这些核心文件在当前上下文中完整、可信、未过期，则不重复读取。
+3. 如果核心文件缺失、不确定、压缩后只剩摘要，或相关文件发生变化，则全量读取 `spec.md`、`task.json`、`progress.json`；若存在 `experience.md`，也全量读取。
+4. 如果无法可靠判断核心上下文是否完整，按缺失处理并全量读取。
+5. 根据 `progress.json.projectType` 读取唯一对应规则：
+   - `web` → `.agents/rules/web.md`
+   - `game-engine` → `.agents/rules/game-engine.md`
+6. 若存在 `.codex/.work-stop`，读取停止原因，删除该文件，然后继续恢复。
+7. 运行 `node .codex/hooks/scripts/next-task.js` 获取当前任务；脚本会跳过 `completed`、`blocked`、`cancelled` 和依赖未完成的 pending 任务。
+8. 若无输出且 `progress.currentPhase = "completed"`，输出完成摘要并停止。
+9. 若输出 blocked 摘要，报告阻塞任务并停止。
+10. 若选中 pending 任务，将 `status = "in_progress"`，并更新 `progress.currentPhase = "in_progress"`、`progress.currentTask = { id, title }`。
+11. 检查 `git status --short`，确认工作区风险。
 
-### 首次/后续判断
+Startup 后，任务选择只通过 `next-task.js`；不要为了找下一个任务反复全量读取 `task.json`。只有核心上下文不完整、状态更新后需要确认、脚本异常或文件变化时，才补读相关文件。
 
-读取 `progress.json` 的 `currentPhase` 和 `currentTask`：
-- = `completed`：输出完成摘要并停止
-- 存在 `task.status = "in_progress"` 或 `progress.currentTask`：优先恢复该任务
-- 其他情况：定位下一个可执行 pending 任务
+## Step 1: Plan 规划
 
-### 首次启动流程
+- 使用 Startup 已读全局上下文和 `next-task.js` 输出作为当前任务上下文。
+- 读取当前任务的 `description`、`dependencies`、`doneWhen`、`verificationLevel`、`files`。
+- 只补读当前任务需要的源码、设计片段和错误定位上下文。
+- 使用 Context7 查询新增或不确定的库 / 框架 API；同一 API 已查证过则复用结论。
+- 源码取证先用 `rg -l` 定位候选文件，再用 `rg -n -C` 或窄范围读取确认。
+- 输出简短实施计划：实现点、`doneWhen`、第一验证动作、是否需要 code-reviewer 或 qa-verifier；不要写冗长设计文档。
 
-1. 读取 `progress.json`，确认项目已初始化
-2. 从 `task.json` 定位当前可恢复任务或下一个可执行 pending 任务，提取 id / title / description / dependencies / doneWhen / verificationLevel / files
-   - 跳过 status 为 `cancelled` 的任务
-   - 跳过 status 为 `blocked` 或依赖未完成的 pending 任务
-   - 旧任务缺少 `doneWhen` / `verificationLevel` 时，根据项目上下文补出最小验收契约
-3. 检查 git 状态，确认当前工作区风险
-4. 若存在 `.codex/.work-stop`，读取原因后删除并继续
-5. 如果选中的是 pending 任务，更新该 task 的 `status = "in_progress"`
-6. 更新 `progress.json`：`currentPhase = "in_progress"`，`currentTask = { id, title }`
+## Step 2: Implement 实现
 
-如果 `progress.json` 不存在，提示用户先运行 `/init-project`。
+- 按 `AGENTS.md`、Startup 已加载项目规则和当前 task 实现。
+- 保持变更聚焦于当前 task 的 `files` 和必要邻近文件。
+- 不添加投机性代码，不为未来任务提前抽象。
+- 多条 shell、HTTP/RPC、Editor 操作优先沉淀为项目脚本后运行。
 
-### 循环读取原则
+## Step 3: Review 评审
 
-- 每轮只读取当前任务需要的条目和文件
-- Edit 成功后以工具返回为准；仅在编译/测试报错指向具体位置时再读取定位
-- 不重复读取未变化的大文档
-
-## 单任务循环（对每个任务重复执行）
-
-### Step 1: Plan 规划
-- 读取当前任务的 description、dependencies、`doneWhen`、`verificationLevel`
-- 确认所有依赖任务已 completed
-- 识别需要创建/修改的文件
-- 使用 Context7 查询相关库/框架最新文档（resolve-library-id → query-docs）
-- 如遇不确定的技术问题，用 WebSearch 搜索
-- 输出简要实施计划（< 10 行），包含：
-  - 本任务的 `doneWhen`
-  - 最便宜的第一验证动作
-  - 是否需要升级为独立评审 / 独立验证，以及原因
-
-### Step 2: Implement 实现
-- 按 AGENTS.md 通用编码规范编写代码
-- 遵循项目类型对应 rules
-- 保持变更聚焦于当前单一任务
-- 组合优于继承，async/await，链式编程
-- 对 UI / editor / runtime 任务，把可观察结果直接对齐到 `doneWhen`
-- 不为未来假设提前抽象
-
-### Step 3: Review 评审
 先做作者自检：
-- 对照 `doneWhen` 检查完成条件
-- 扫描失败路径、异常输入、资源释放和回滚路径
-- 检查是否引入不必要抽象或范围膨胀
+- 对照 `doneWhen` 检查完成条件。
+- 检查失败路径、异常输入、资源释放和回滚路径。
+- 检查是否引入不必要抽象或范围膨胀。
 
-满足任一条件时升级评审：
-- 涉及公开接口、跨模块契约、并发、持久化、鉴权、安全、数据迁移
-- 修改多个核心模块或核心 runtime/editor 路径
-- 实际 diff 显示风险高于普通局部任务
+满足任一条件时执行独立评审流程：
+- 涉及公开接口、跨模块契约、并发、持久化、鉴权、安全、数据迁移。
+- 修改多个核心模块或核心 runtime/editor 路径。
+- 实际 diff 显示风险高于普通局部任务。
 
-否则记录“已完成作者自检”，不启动外部评审。
+如执行独立评审：
+- 只传入当前任务变更文件。
+- 修复所有 critical 问题和置信度 >= 80 的 warning 问题。
 
-如升级评审：
-- 先在当前 Codex 会话内按 `/review` 的四维清单检查当前任务变更
-- 当前环境支持子 agent 且用户明确允许委派时，再启动独立评审 agent
-- 只传入当前任务变更文件
-- 修复所有 critical 级别问题
-- 修复置信度 >= 80 的 warning 级别问题
-- info 级别记录但不阻塞
+## Step 4: Build 编译验证
 
-### Step 4: Build 编译验证
-**此步骤为硬性门禁，必须通过后才能继续。**
+编译验证是硬门禁，必须零 error。
 
-**Web 项目**：
-1. 如果 node_modules 不存在，先运行 `npm install` 或 `pnpm install`
-2. 先运行最窄的类型/编译检查：`npx tsc --noEmit`、`npm run typecheck` 或等价命令
-3. 如存在 build script，再运行 `npm run build` 或 `pnpm build`
-4. 如当前任务已有窄测试命令，优先跑当前 slice 的那一条
-5. 必须零编译 error
+Web 项目：
+- 依赖缺失时先安装依赖。
+- 优先运行最窄类型 / 编译检查：`npx tsc --noEmit`、`npm run typecheck` 或等价命令。
+- 如存在 build script，再运行 `npm run build` 或 `pnpm build`。
 
-**游戏项目**：
-1. Unity：`Unity -batchmode -nographics -logFile - -quit -projectPath .`
-2. Unreal：使用 UnrealBuildTool 编译
-3. Cocos：`npm run build` 或 `cocos compile`
-4. 如存在当前 system / scene / editor 相关单元测试，也优先运行最窄的一组
-5. 必须零编译 error
+游戏项目：
+- Unity：`Unity -batchmode -nographics -logFile - -quit -projectPath .`
+- Unreal：使用 UnrealBuildTool 编译。
+- Cocos：`npm run build` 或 `cocos compile`。
 
-编译失败则修复代码并重新编译，直到通过。
+编译日志写入文件或限制为错误摘要；只回读 error、warning 和必要尾部上下文。编译失败则修复后重跑。
 
-### Step 5: Test 验证
-始终从最便宜、最能证伪当前假设的验证开始。
-
-- `local`：局部单测、类型检查、编译烟雾、纯逻辑验证
-- `slice`：只验证当前任务对应的一条功能闭环
-- `milestone`：验证一个完整模块或一组连续任务的主路径
-- `release`：完整回归
+## Step 5: Test 验证
 
 按 `verificationLevel` 执行：
-- `local`：不启动独立 QA；只做最窄验证
-- `slice`：围绕 `doneWhen` 运行当前 slice 测试 / 场景 / 路由闭环
-- `milestone`：做模块级验证；环境支持且用户允许时可委派独立 QA
-- `release`：做完整回归；环境支持且用户允许时可委派独立 QA
+- `local`：局部单测、类型检查、编译烟雾、纯逻辑验证。
+- `slice`：只验证当前任务的一条功能闭环。
+- `milestone`：执行独立 QA 流程，验证完整模块或连续任务主路径。
+- `release`：执行独立 QA 流程，做完整回归。
 
 当且仅当满足以下之一时升级为独立 QA：
-- `verificationLevel = milestone` 或 `release`
-- 当前任务改变主用户路径、跨模块集成、核心 runtime/editor 闭环
-- 用户明确要求独立 QA
+- `verificationLevel = milestone` 或 `release`。
+- 当前任务改变主用户路径、跨模块集成、核心 runtime/editor 闭环。
+- 用户明确要求独立 QA。
 
-视觉相关 task 必须启动 Playwright：
-1. `browser_navigate` 打开目标页面
-2. `browser_snapshot` 抓 a11y tree 验证渲染
-3. `browser_console_messages` 检查零 error
-4. `browser_click` / `browser_type` 跑一遍 `doneWhen` 闭环
+视觉相关 task 使用 Playwright 验证渲染、控制台错误和 `doneWhen` 闭环。
 
-### Step 6: Commit 提交
-- `git add` 相关变更文件（不要用 git add -A）
-- `git commit -m "feat/fix/refactor: [任务标题] - task #[id]"`
-- 更新 task.json：将当前任务 status 从 "in_progress" 改为 "completed"
-- 更新 progress.json：
-  - completedTasks += 1
-  - currentTask = null
-  - lastSession.date = 当前 ISO 时间
-  - lastSession.tasksCompleted 追加当前任务 ID
-- `git add task.json progress.json`
-- `git commit -m "chore: update progress - task #[id] completed"`
+## Step 6: Commit 提交
 
-### Step 6.5: Learn 经验提取
-- 执行 /learn 逻辑，把本任务的新经验追加到项目根目录 `experience.md`，不写入 `spec.md`
-- 只记录对未来 session 有价值的偏好、技术发现或踩坑记录
-- 如有新内容：`git add experience.md && git commit -m "chore: update experience notes - task #[id]"`
-- 如无新发现，直接进入 Step 7
+1. `git add` 当前任务功能变更文件，不使用 `git add -A`。
+2. `git commit -m "feat/fix/refactor: [任务标题] - task #[id]"`。
+3. 将任务从 "in_progress" 改为 "completed"。
+4. 更新 `progress.json`：
+   - `completedTasks += 1`
+   - `currentTask = null`
+   - `lastSession.date = 当前 ISO 时间`
+   - `lastSession.tasksCompleted` 追加当前任务 ID
+5. 执行 `/learn` 逻辑；如有长期经验，追加到 `experience.md`。
+6. `git add task.json progress.json experience.md`（如 `experience.md` 不存在或无变化则不添加）。
+7. `git commit -m "chore: update task state - task #[id]"`。
 
-### Step 7: Continue 继续
-1. 检查 task.json 是否还有依赖已满足的 pending 任务
-2. 无 pending 且无 blocked 任务 → 更新 progress.json 的 `currentPhase = "completed"`，输出完成摘要，停止
-3. 无可执行 pending 但存在 blocked/依赖未满足任务 → 输出阻塞报告，停止
-4. 有可执行 pending → 立即回到 Step 1，进入下一个任务
+## Step 7: Continue 继续
+
+1. 运行 `node .codex/hooks/scripts/next-task.js`。
+2. 无输出且全部完成：更新 `progress.currentPhase = "completed"`，输出摘要并停止。
+3. 返回 blocked 摘要：输出阻塞报告并停止。
+4. 返回 task：进入 Step 1。
 
 ## 错误恢复
 
 如果某个 Step 失败：
-1. 在 progress.json 的 notes 中记录错误信息
-2. 将任务 status 改为 "blocked"
-3. 将任务 ID 加入 progress.json 的 blockedTasks 数组
-4. git commit 当前状态
-5. 跳到下一个不依赖此任务的 pending 任务
-6. 如果无可用任务，输出阻塞报告并停止
+1. 在 `progress.json` notes 中记录错误。
+2. 将任务设为 `blocked`，并加入 `blockedTasks`。
+3. 提交当前状态。
+4. 运行 `next-task.js`，继续下一个不依赖此任务的 pending task。
 
-## 重要原则
+## 并行工具调用
 
-- **永不停止**：除非全部完成、全部阻塞、用户停止或不可恢复错误
-- **绝对禁止提前停止**：完成一个任务后直接进入下一个任务 Step 1
-- **单任务聚焦**：一次只做一个任务，做完再取下一个
-- **搜索优先**：写代码前先用 Context7 查文档
-- **编译门禁**：代码必须能编译通过才能提交
-- **增量提交**：每个任务完成立即提交，不累积
-- **进度可恢复**：progress.json 保证 session 断开后可恢复
+- 多个互不依赖的读取、搜索、状态检查、轻量验证，应在同一轮工具调用中一起发出。
+- 有先后依赖的动作分轮执行，例如先读错误摘要，再按错误位置读取源码。
+- 编辑、格式化、状态更新、提交等会改变仓库状态的动作，不和探索 / 检查混在同一轮。
+
+## 运行规则
+
+- 永不停止：除非全部完成、全部阻塞、用户停止或不可恢复错误。
+- 绝对禁止提前停止：完成一个 task 后必须进入 Step 7。
+- 单任务聚焦：一次只做一个 task。
+- 搜索优先：写代码前先查证 API。
+- 编译门禁：代码必须编译通过才能提交。

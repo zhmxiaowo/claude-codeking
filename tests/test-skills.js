@@ -39,8 +39,8 @@ const EXPECTED_SKILLS = [
   {
     name: 'work',
     requiredFields: ['name', 'description', 'user-invocable'],
-    requiredSections: ['Startup', 'Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Step 6', 'Step 7'],
-    requiredContent: ['永不停止', '绝对禁止提前停止', '编译验证', 'cancelled', '.work-stop', 'Context7', 'doneWhen', 'milestone', 'qa-verifier'],
+    requiredSections: ['Startup', 'Step 1', 'Step 2', 'Step 3', 'Step 4', 'Step 5', 'Step 6', 'Step 7', '并行工具调用'],
+    requiredContent: ['永不停止', '绝对禁止提前停止', '编译验证', 'cancelled', '.work-stop', 'Context7', 'doneWhen', 'milestone', 'qa-verifier', 'next-task.js', 'chore: update task state'],
   },
   {
     name: 'stopwork',
@@ -212,6 +212,67 @@ describe('Claude/Codex Skill 契约一致性', () => {
       assert.ok(work.includes('status = "in_progress"'), `${dir} /work 应设置 in_progress`);
       assert.ok(work.includes('currentTask = { id, title }'), `${dir} /work 应设置 currentTask`);
       assert.ok(work.includes('从 "in_progress" 改为 "completed"'), `${dir} /work 应完成 in_progress 任务`);
+    }
+  });
+
+  it('/work Startup 应确保核心上下文完整并按 projectType 加载 rules', () => {
+    const cases = [
+      { dir: SKILLS_DIR, rulesPath: '.claude/rules', scriptPath: '.claude/hooks/scripts/next-task.js' },
+      { dir: CODEX_SKILLS_DIR, rulesPath: '.agents/rules', scriptPath: '.codex/hooks/scripts/next-task.js' },
+    ];
+
+    for (const c of cases) {
+      const work = fs.readFileSync(path.join(c.dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(work.includes('项目核心上下文装载'), `${c.dir} /work 应声明 Startup 是上下文装载`);
+      assert.ok(work.includes('完整、可信、未过期，则不重复读取'), `${c.dir} /work 应允许核心上下文完整时跳过重读`);
+      assert.ok(work.includes('缺失、不确定、压缩后只剩摘要'), `${c.dir} /work 应在上下文不完整时全量读取`);
+      assert.ok(work.includes('若存在 `experience.md`，也全量读取'), `${c.dir} /work 应可选读取 experience.md`);
+      assert.ok(work.includes('无法可靠判断核心上下文是否完整'), `${c.dir} /work 应按缺失处理不确定上下文`);
+      assert.ok(work.includes('projectType'), `${c.dir} /work 应按 projectType 选择 rules`);
+      assert.ok(work.includes(`${c.rulesPath}/web.md`), `${c.dir} /work 应引用 web rules`);
+      assert.ok(work.includes(`${c.rulesPath}/game-engine.md`), `${c.dir} /work 应引用 game-engine rules`);
+      assert.ok(work.includes(c.scriptPath), `${c.dir} /work 应使用对应 next-task.js`);
+    }
+  });
+
+  it('/work 应将持续开发状态机留在 skill 内', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const work = fs.readFileSync(path.join(dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(work.includes('持续开发的唯一状态机'), `${dir} /work 应声明状态机职责`);
+      assert.ok(work.includes('Startup 后，任务选择只通过 `next-task.js`'), `${dir} /work 后续任务选择应依赖 next-task`);
+      assert.ok(work.includes('不要为了找下一个任务反复全量读取 `task.json`'), `${dir} /work 不应反复全量扫描任务`);
+      assert.ok(work.includes('Plan'), `${dir} /work 应包含 Plan`);
+      assert.ok(work.includes('Implement'), `${dir} /work 应包含 Implement`);
+      assert.ok(work.includes('Review'), `${dir} /work 应包含 Review`);
+      assert.ok(work.includes('Build'), `${dir} /work 应包含 Build`);
+      assert.ok(work.includes('Test'), `${dir} /work 应包含 Test`);
+      assert.ok(work.includes('Commit'), `${dir} /work 应包含 Commit`);
+      assert.ok(work.includes('Continue'), `${dir} /work 应包含 Continue`);
+    }
+  });
+
+  it('/work 应采用功能提交 + 状态提交两阶段提交', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const work = fs.readFileSync(path.join(dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(work.includes('feat/fix/refactor: [任务标题] - task #[id]'), `${dir} /work 应定义功能提交`);
+      assert.ok(work.includes('git add task.json progress.json experience.md'), `${dir} /work 应合并状态和经验提交`);
+      assert.ok(work.includes('chore: update task state - task #[id]'), `${dir} /work 应定义状态提交`);
+      assert.ok(!work.includes('chore: update progress - task #[id] completed'), `${dir} /work 不应使用旧进度提交`);
+      assert.ok(!work.includes('chore: update experience notes - task #[id]'), `${dir} /work 不应独立提交 experience`);
+    }
+  });
+
+  it('/work 应使用并行工具调用而不是批处理脚本口吻', () => {
+    for (const dir of [SKILLS_DIR, CODEX_SKILLS_DIR]) {
+      const work = fs.readFileSync(path.join(dir, 'work', 'SKILL.md'), 'utf8');
+      assert.ok(work.includes('并行工具调用'), `${dir} /work 应使用并行工具调用`);
+      assert.ok(work.includes('互不依赖'), `${dir} /work 应说明互不依赖的调用可并行`);
+      assert.ok(work.includes('同一轮工具调用'), `${dir} /work 应说明同一轮工具调用`);
+      assert.ok(work.includes('有先后依赖的动作分轮执行'), `${dir} /work 应说明依赖动作分轮执行`);
+      assert.ok(work.includes('不和探索 / 检查混在同一轮'), `${dir} /work 应隔离写入类动作`);
+      assert.ok(!work.includes('只读 Node.js/Python 批处理汇总'), `${dir} /work 不应建议脚本批处理`);
+      assert.ok(!work.includes('只用于探索和摘要'), `${dir} /work 不应保留旧批处理描述`);
+      assert.ok(!work.includes('少于 10 行'), `${dir} /work 不应限制计划行数`);
     }
   });
 
